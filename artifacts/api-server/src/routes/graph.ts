@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { parseInstanceId } from "../lib/instance-id";
 import { sql } from "drizzle-orm";
 import { db, memoriesTable } from "@workspace/db";
 import { GetGraphQueryParams } from "@workspace/api-zod";
@@ -13,7 +14,12 @@ router.get("/graph", async (req, res): Promise<void> => {
   }
 
   const { limit = 100 } = parsed.data;
-  const instanceId = req.query.instanceId ? parseInt(req.query.instanceId as string, 10) : null;
+  const instanceParsed = parseInstanceId(req.query.instanceId);
+  if (!instanceParsed.ok) {
+    res.status(400).json({ error: "Invalid instanceId" });
+    return;
+  }
+  const instanceId = instanceParsed.value;
 
   const memories = await db
     .select()

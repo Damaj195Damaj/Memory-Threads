@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { parseInstanceId } from "../lib/instance-id";
 import { eq, desc, sql, and, gte, lte, arrayOverlaps } from "drizzle-orm";
 import { db, memoriesTable, timelineEditsTable } from "@workspace/db";
 import multer from "multer";
@@ -76,9 +77,12 @@ const router = Router();
 
 // DELETE /memories — delete all memories (optionally filtered by instance)
 router.delete("/memories", async (req, res): Promise<void> => {
-  const instanceId = req.query.instanceId
-    ? parseInt(req.query.instanceId as string, 10)
-    : null;
+  const instanceParsed = parseInstanceId(req.query.instanceId);
+  if (!instanceParsed.ok) {
+    res.status(400).json({ error: "Invalid instanceId" });
+    return;
+  }
+  const instanceId = instanceParsed.value;
 
   const where = instanceId ? eq(memoriesTable.instanceId, instanceId) : undefined;
 
@@ -113,9 +117,12 @@ router.get("/memories", async (req, res): Promise<void> => {
     return;
   }
   const { status, fileType, people, topics, tags, dateFrom, dateTo, q, limit = 50, offset = 0 } = parsed.data;
-  const instanceId = req.query.instanceId
-    ? parseInt(req.query.instanceId as string, 10)
-    : null;
+  const instanceParsed = parseInstanceId(req.query.instanceId);
+  if (!instanceParsed.ok) {
+    res.status(400).json({ error: "Invalid instanceId" });
+    return;
+  }
+  const instanceId = instanceParsed.value;
 
   const conditions: ReturnType<typeof eq>[] = [];
 
@@ -281,8 +288,9 @@ router.post(
       const ext = path.extname(file.originalname).toLowerCase().slice(1);
       const fileType = ext || file.mimetype.split("/")[1] || "unknown";
 
-      const uploadInstanceId = req.body?.instanceId
-        ? parseInt(String(req.body.instanceId), 10)
+      const uploadInstanceParsed = parseInstanceId(req.body?.instanceId);
+      const uploadInstanceId = uploadInstanceParsed.ok
+        ? uploadInstanceParsed.value
         : null;
 
       const [memory] = await db
@@ -320,11 +328,20 @@ router.get("/memories/:id", async (req, res): Promise<void> => {
     return;
   }
   const { id } = paramsResult.data;
+  const instanceParsed = parseInstanceId(req.query.instanceId);
+  if (!instanceParsed.ok) {
+    res.status(400).json({ error: "Invalid instanceId" });
+    return;
+  }
 
   const [memory] = await db
     .select()
     .from(memoriesTable)
-    .where(eq(memoriesTable.id, id));
+    .where(
+      instanceParsed.value
+        ? and(eq(memoriesTable.id, id), eq(memoriesTable.instanceId, instanceParsed.value))
+        : eq(memoriesTable.id, id)
+    );
 
   if (!memory) {
     res.status(404).json({ error: "Memory not found" });
@@ -344,10 +361,19 @@ router.delete("/memories/:id", async (req, res): Promise<void> => {
     return;
   }
   const { id } = paramsResult.data;
+  const instanceParsed = parseInstanceId(req.query.instanceId);
+  if (!instanceParsed.ok) {
+    res.status(400).json({ error: "Invalid instanceId" });
+    return;
+  }
 
   const [deleted] = await db
     .delete(memoriesTable)
-    .where(eq(memoriesTable.id, id))
+    .where(
+      instanceParsed.value
+        ? and(eq(memoriesTable.id, id), eq(memoriesTable.instanceId, instanceParsed.value))
+        : eq(memoriesTable.id, id)
+    )
     .returning();
 
   if (!deleted) {
@@ -375,11 +401,20 @@ router.get("/memories/:id/related", async (req, res): Promise<void> => {
     return;
   }
   const { id } = paramsResult.data;
+  const instanceParsed = parseInstanceId(req.query.instanceId);
+  if (!instanceParsed.ok) {
+    res.status(400).json({ error: "Invalid instanceId" });
+    return;
+  }
 
   const [source] = await db
     .select()
     .from(memoriesTable)
-    .where(eq(memoriesTable.id, id));
+    .where(
+      instanceParsed.value
+        ? and(eq(memoriesTable.id, id), eq(memoriesTable.instanceId, instanceParsed.value))
+        : eq(memoriesTable.id, id)
+    );
 
   if (!source) {
     res.status(404).json({ error: "Memory not found" });

@@ -1,11 +1,17 @@
 import { Router } from "express";
+import { parseInstanceId } from "../lib/instance-id";
 import { sql, desc, eq } from "drizzle-orm";
 import { db, memoriesTable, searchQueriesTable } from "@workspace/db";
 
 const router = Router();
 
 router.get("/dashboard", async (req, res): Promise<void> => {
-  const instanceId = req.query.instanceId ? parseInt(req.query.instanceId as string, 10) : null;
+  const instanceParsed = parseInstanceId(req.query.instanceId);
+  if (!instanceParsed.ok) {
+    res.status(400).json({ error: "Invalid instanceId" });
+    return;
+  }
+  const instanceId = instanceParsed.value;
   const iFilter = instanceId ? sql`AND ${memoriesTable.instanceId} = ${instanceId}` : sql``;
   const iWhere = instanceId ? eq(memoriesTable.instanceId, instanceId) : undefined;
 
@@ -138,7 +144,12 @@ router.get("/dashboard", async (req, res): Promise<void> => {
 });
 
 router.get("/filters", async (req, res): Promise<void> => {
-  const instanceId = req.query.instanceId ? parseInt(req.query.instanceId as string, 10) : null;
+  const instanceParsed = parseInstanceId(req.query.instanceId);
+  if (!instanceParsed.ok) {
+    res.status(400).json({ error: "Invalid instanceId" });
+    return;
+  }
+  const instanceId = instanceParsed.value;
   const iFilter = instanceId ? sql`AND ${memoriesTable.instanceId} = ${instanceId}` : sql``;
   const iWhere = instanceId ? eq(memoriesTable.instanceId, instanceId) : undefined;
 

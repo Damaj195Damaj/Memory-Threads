@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { parseInstanceId } from "../lib/instance-id";
 import { sql, desc } from "drizzle-orm";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { db, memoriesTable, searchQueriesTable } from "@workspace/db";
@@ -16,7 +17,12 @@ router.post("/ask", async (req, res): Promise<void> => {
   }
 
   const { question } = parsed.data;
-  const instanceId = req.body.instanceId ? parseInt(String(req.body.instanceId), 10) : null;
+  const instanceParsed = parseInstanceId(req.body.instanceId);
+  if (!instanceParsed.ok) {
+    res.status(400).json({ error: "Invalid instanceId" });
+    return;
+  }
+  const instanceId = instanceParsed.value;
   const instanceFilter = instanceId ? sql`AND ${memoriesTable.instanceId} = ${instanceId}` : sql``;
 
   // OR-based term matching for recall; the LLM decides what's actually relevant

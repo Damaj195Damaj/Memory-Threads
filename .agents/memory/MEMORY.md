@@ -2,3 +2,5 @@
 - [pdf-parse import quirk](pdf-parse-import.md) — CJS module, must use dynamic import with default fallback pattern
 - [DB schema rebuild rule](db-schema-rebuild.md) — After changing lib/db/src/schema/, always run typecheck:libs before artifact typechecks
 - [File upload flow](file-upload-flow.md) — multer handles upload, processMemory fires async (no await), client polls for status
+- [React context + HMR](react-context-hmr.md) — context hooks return fallback not throw; ref-guard auto-create effects; stale HMR graphs need dev-server restart
+- [Instance scoping](instance-scoping.md) — validate instanceId strictly (400 on invalid, never unscoped fallback); by-ID routes need ownership checks

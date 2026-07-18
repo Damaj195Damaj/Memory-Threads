@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { parseInstanceId } from "../lib/instance-id";
 import { sql, desc, inArray, arrayOverlaps } from "drizzle-orm";
 import { db, memoriesTable, searchQueriesTable } from "@workspace/db";
 import { SearchMemoriesBody } from "@workspace/api-zod";
@@ -15,7 +16,12 @@ router.post("/search", async (req, res): Promise<void> => {
   }
 
   const { query, filters, limit = 10 } = parsed.data;
-  const instanceId = req.body.instanceId ? parseInt(String(req.body.instanceId), 10) : null;
+  const instanceParsed = parseInstanceId(req.body.instanceId);
+  if (!instanceParsed.ok) {
+    res.status(400).json({ error: "Invalid instanceId" });
+    return;
+  }
+  const instanceId = instanceParsed.value;
 
   // Save search query
   db.insert(searchQueriesTable).values({ query }).catch((err) =>

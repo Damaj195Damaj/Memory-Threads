@@ -30,6 +30,9 @@ An AI-powered memory engine for your files. Instead of searching by filename, se
 - `lib/api-spec/openapi.yaml` — OpenAPI spec (source of truth)
 - `lib/db/src/schema/memories.ts` — memories table (main entity)
 - `lib/db/src/schema/searchQueries.ts` — search history table
+- `lib/db/src/schema/instances.ts` — workspaces table (`instanceId` FK on memories + timeline_edits, cascade delete)
+- `artifacts/api-server/src/lib/instance-id.ts` — strict `parseInstanceId` helper (400 on invalid, never unscoped fallback)
+- `artifacts/memory-threads/src/contexts/InstanceContext.tsx` — active workspace state (localStorage, auto-creates "Default")
 - `artifacts/api-server/src/lib/ai.ts` — DeepSeek client, analyzeContent, rankSearchResults, answerQuestion
 - `artifacts/api-server/src/lib/fileProcessor.ts` — text extraction from PDF/DOCX/TXT/CSV
 - `artifacts/api-server/src/lib/processor.ts` — background processing pipeline
@@ -53,6 +56,7 @@ An AI-powered memory engine for your files. Instead of searching by filename, se
 - **Timeline**: Chronological view of memories and detected events
 - **Graph**: Force-directed relationship graph (people ↔ documents ↔ topics)
 - **Dashboard**: Stats, top topics, most mentioned people, recent searches
+- **Workspaces (instances)**: Sidebar switcher groups all data into separate workspaces (create/rename/delete, color-coded). Active workspace persisted in localStorage; all API queries scoped by `instanceId`. Memories page includes a "Delete all" action per workspace.
 
 ## User preferences
 

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { parseInstanceId } from "../lib/instance-id";
 import { sql, asc, eq } from "drizzle-orm";
 import { db, memoriesTable, timelineEditsTable } from "@workspace/db";
 import {
@@ -31,7 +32,12 @@ router.get("/timeline", async (req, res): Promise<void> => {
   }
 
   const { dateFrom, dateTo, limit = 100 } = parsed.data;
-  const instanceId = req.query.instanceId ? parseInt(req.query.instanceId as string, 10) : null;
+  const instanceParsed = parseInstanceId(req.query.instanceId);
+  if (!instanceParsed.ok) {
+    res.status(400).json({ error: "Invalid instanceId" });
+    return;
+  }
+  const instanceId = instanceParsed.value;
 
   const conditions: ReturnType<typeof sql>[] = [];
   if (dateFrom) conditions.push(sql`${memoriesTable.uploadedAt} >= ${new Date(dateFrom)}`);
@@ -146,7 +152,12 @@ router.post("/timeline/events", async (req, res): Promise<void> => {
     return;
   }
   const { date, title, description, type, memoryId } = parsed.data;
-  const instanceId = req.body.instanceId ? parseInt(String(req.body.instanceId), 10) : null;
+  const instanceParsed = parseInstanceId(req.body.instanceId);
+  if (!instanceParsed.ok) {
+    res.status(400).json({ error: "Invalid instanceId" });
+    return;
+  }
+  const instanceId = instanceParsed.value;
 
   const [row] = await db
     .insert(timelineEditsTable)
@@ -157,7 +168,7 @@ router.post("/timeline/events", async (req, res): Promise<void> => {
       date: new Date(date),
       memoryId: memoryId ?? null,
       isCustom: true,
-      instanceId: instanceId || null,
+      instanceId,
     })
     .returning();
 
@@ -188,6 +199,12 @@ router.put("/timeline/events/:id", async (req, res): Promise<void> => {
     return;
   }
   const { date, title, description, type } = parsed.data;
+  const instanceParsed = parseInstanceId(req.body.instanceId ?? req.query.instanceId);
+  if (!instanceParsed.ok) {
+    res.status(400).json({ error: "Invalid instanceId" });
+    return;
+  }
+  const instanceId = instanceParsed.value;
 
   if (eventId.startsWith("custom-")) {
     const rowId = parseInt(eventId.slice("custom-".length), 10);
@@ -203,7 +220,11 @@ router.put("/timeline/events/:id", async (req, res): Promise<void> => {
         ...(type !== undefined ? { type } : {}),
         ...(date !== undefined ? { date: new Date(date) } : {}),
       })
-      .where(eq(timelineEditsTable.id, rowId))
+      .where(
+        instanceId
+          ? sql`${timelineEditsTable.id} = ${rowId} AND (${timelineEditsTable.instanceId} = ${instanceId} OR ${timelineEditsTable.instanceId} IS NULL)`
+          : eq(timelineEditsTable.id, rowId)
+      )
       .returning();
     if (!row) {
       res.status(404).json({ error: "Event not found" });
@@ -244,7 +265,7 @@ router.put("/timeline/events/:id", async (req, res): Promise<void> => {
         .returning()
     : await db
         .insert(timelineEditsTable)
-        .values({ eventKey: eventId, isCustom: false, ...values })
+        .values({ eventKey: eventId, isCustom: false, instanceId, ...values })
         .returning();
 
   res.json({
@@ -263,6 +284,12 @@ router.put("/timeline/events/:id", async (req, res): Promise<void> => {
 // DELETE /timeline/events/:id — delete custom or hide auto event
 router.delete("/timeline/events/:id", async (req, res): Promise<void> => {
   const eventId = String(req.params.id);
+  const instanceParsed = parseInstanceId(req.query.instanceId);
+  if (!instanceParsed.ok) {
+    res.status(400).json({ error: "Invalid instanceId" });
+    return;
+  }
+  const instanceId = instanceParsed.value;
 
   if (eventId.startsWith("custom-")) {
     const rowId = parseInt(eventId.slice("custom-".length), 10);
@@ -270,7 +297,13 @@ router.delete("/timeline/events/:id", async (req, res): Promise<void> => {
       res.status(404).json({ error: "Event not found" });
       return;
     }
-    await db.delete(timelineEditsTable).where(eq(timelineEditsTable.id, rowId));
+    await db
+      .delete(timelineEditsTable)
+      .where(
+        instanceId
+          ? sql`${timelineEditsTable.id} = ${rowId} AND (${timelineEditsTable.instanceId} = ${instanceId} OR ${timelineEditsTable.instanceId} IS NULL)`
+          : eq(timelineEditsTable.id, rowId)
+      );
     res.json({ success: true });
     return;
   }
@@ -288,7 +321,7 @@ router.delete("/timeline/events/:id", async (req, res): Promise<void> => {
   } else {
     await db
       .insert(timelineEditsTable)
-      .values({ eventKey: eventId, hidden: true, isCustom: false });
+      .values({ eventKey: eventId, hidden: true, isCustom: false, instanceId });
   }
 
   res.json({ success: true });
