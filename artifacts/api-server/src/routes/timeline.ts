@@ -31,13 +31,19 @@ router.get("/timeline", async (req, res): Promise<void> => {
   }
 
   const { dateFrom, dateTo, limit = 100 } = parsed.data;
+  const instanceId = req.query.instanceId ? parseInt(req.query.instanceId as string, 10) : null;
 
   const conditions: ReturnType<typeof sql>[] = [];
   if (dateFrom) conditions.push(sql`${memoriesTable.uploadedAt} >= ${new Date(dateFrom)}`);
   if (dateTo) conditions.push(sql`${memoriesTable.uploadedAt} <= ${new Date(dateTo)}`);
+  if (instanceId) conditions.push(sql`${memoriesTable.instanceId} = ${instanceId}`);
 
   const whereClause = conditions.length > 0
     ? conditions.reduce((a, b) => sql`${a} AND ${b}`)
+    : sql`1=1`;
+
+  const editsWhere = instanceId
+    ? sql`${timelineEditsTable.instanceId} = ${instanceId} OR ${timelineEditsTable.instanceId} IS NULL`
     : sql`1=1`;
 
   const [memories, edits] = await Promise.all([
@@ -47,7 +53,7 @@ router.get("/timeline", async (req, res): Promise<void> => {
       .where(whereClause)
       .orderBy(asc(memoriesTable.uploadedAt))
       .limit(limit),
-    db.select().from(timelineEditsTable),
+    db.select().from(timelineEditsTable).where(editsWhere),
   ]);
 
   const overrides = new Map(
@@ -140,6 +146,7 @@ router.post("/timeline/events", async (req, res): Promise<void> => {
     return;
   }
   const { date, title, description, type, memoryId } = parsed.data;
+  const instanceId = req.body.instanceId ? parseInt(String(req.body.instanceId), 10) : null;
 
   const [row] = await db
     .insert(timelineEditsTable)
@@ -150,6 +157,7 @@ router.post("/timeline/events", async (req, res): Promise<void> => {
       date: new Date(date),
       memoryId: memoryId ?? null,
       isCustom: true,
+      instanceId: instanceId || null,
     })
     .returning();
 

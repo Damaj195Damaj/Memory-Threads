@@ -7,6 +7,7 @@ import {
   timestamp,
   pgEnum,
 } from "drizzle-orm/pg-core";
+import { instancesTable } from "./instances";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -36,6 +37,9 @@ export const memoriesTable = pgTable("memories", {
   dates: text("dates").array().notNull().default([]),
   tasks: text("tasks").array().notNull().default([]),
   topics: text("topics").array().notNull().default([]),
+  instanceId: integer("instance_id").references(() => instancesTable.id, {
+    onDelete: "cascade",
+  }),
   errorMessage: text("error_message"),
   uploadedAt: timestamp("uploaded_at", { withTimezone: true })
     .notNull()

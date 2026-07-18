@@ -4,15 +4,17 @@ import { MessageSquare, Loader2, Brain, FileText, ArrowRight, Sparkles } from 'l
 import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'wouter';
+import { useInstance } from '@/contexts/InstanceContext';
 
 export default function Ask() {
+  const { activeInstanceId } = useInstance();
   const [question, setQuestion] = useState('');
   const askMutation = useAskMemory();
 
   const handleAsk = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!question.trim()) return;
-    askMutation.mutate({ data: { question: question.trim() } });
+    if (!question.trim() || !activeInstanceId) return;
+    askMutation.mutate({ data: { question: question.trim(), instanceId: activeInstanceId } });
   };
 
   const response = askMutation.data;

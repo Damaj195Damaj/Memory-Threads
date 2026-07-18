@@ -5,15 +5,17 @@ import { Input } from '@/components/ui/input';
 import { MemoryCard } from '@/components/shared/memory-card';
 import { EmptyState } from '@/components/shared/empty-state';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useInstance } from '@/contexts/InstanceContext';
 
 export default function Search() {
+  const { activeInstanceId } = useInstance();
   const [query, setQuery] = useState('');
   const searchMutation = useSearchMemories();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!query.trim()) return;
-    searchMutation.mutate({ data: { query: query.trim() } });
+    if (!query.trim() || !activeInstanceId) return;
+    searchMutation.mutate({ data: { query: query.trim(), instanceId: activeInstanceId } });
   };
 
   const results = searchMutation.data?.results || [];

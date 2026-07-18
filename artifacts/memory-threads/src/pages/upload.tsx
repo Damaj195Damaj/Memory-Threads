@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/components/ui/use-toast';
 import { formatBytes } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { useInstance } from '@/contexts/InstanceContext';
 
 type UploadFileState = {
   file: File;
@@ -15,6 +16,7 @@ type UploadFileState = {
 };
 
 export default function Upload() {
+  const { activeInstanceId } = useInstance();
   const [isDragging, setIsDragging] = useState(false);
   const [files, setFiles] = useState<UploadFileState[]>([]);
   const [isConfirming, setIsConfirming] = useState(false);
@@ -92,6 +94,10 @@ export default function Upload() {
         formData.append('files', f.file); // Backend supports multiple files, field name flexible but 'files' is standard
       }
     });
+
+    if (activeInstanceId) {
+      formData.append('instanceId', activeInstanceId.toString());
+    }
 
     try {
       const response = await fetch('/api/memories/upload', {

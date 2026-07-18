@@ -7,6 +7,7 @@
  */
 
 export type GetTimelineParams = {
+instanceId?: number;
 dateFrom?: string;
 dateTo?: string;
 limit?: number;

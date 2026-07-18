@@ -10,6 +10,7 @@ import type { SearchFilters } from './searchFilters';
 export interface SearchInput {
   /** @minLength 1 */
   query: string;
+  instanceId?: number;
   filters?: SearchFilters;
   limit?: number;
 }

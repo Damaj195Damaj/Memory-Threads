@@ -1,10 +1,14 @@
 import { Router } from "express";
-import { sql, desc } from "drizzle-orm";
+import { sql, desc, eq } from "drizzle-orm";
 import { db, memoriesTable, searchQueriesTable } from "@workspace/db";
 
 const router = Router();
 
 router.get("/dashboard", async (req, res): Promise<void> => {
+  const instanceId = req.query.instanceId ? parseInt(req.query.instanceId as string, 10) : null;
+  const iFilter = instanceId ? sql`AND ${memoriesTable.instanceId} = ${instanceId}` : sql``;
+  const iWhere = instanceId ? eq(memoriesTable.instanceId, instanceId) : undefined;
+
   // Total memories and status counts
   const statusCounts = await db
     .select({
@@ -12,6 +16,7 @@ router.get("/dashboard", async (req, res): Promise<void> => {
       count: sql<number>`count(*)`,
     })
     .from(memoriesTable)
+    .where(iWhere)
     .groupBy(memoriesTable.status);
 
   const total = statusCounts.reduce((sum, r) => sum + Number(r.count), 0);
@@ -24,6 +29,7 @@ router.get("/dashboard", async (req, res): Promise<void> => {
   const recentUploads = await db
     .select()
     .from(memoriesTable)
+    .where(iWhere)
     .orderBy(desc(memoriesTable.uploadedAt))
     .limit(6);
 
@@ -33,7 +39,7 @@ router.get("/dashboard", async (req, res): Promise<void> => {
       topic: sql<string>`unnest(${memoriesTable.topics})`,
     })
     .from(memoriesTable)
-    .where(sql`${memoriesTable.status} = 'ready'`);
+    .where(sql`${memoriesTable.status} = 'ready' ${iFilter}`);
 
   const topicMap = new Map<string, number>();
   for (const r of topicsResult) {
@@ -52,7 +58,7 @@ router.get("/dashboard", async (req, res): Promise<void> => {
       person: sql<string>`unnest(${memoriesTable.people})`,
     })
     .from(memoriesTable)
-    .where(sql`${memoriesTable.status} = 'ready'`);
+    .where(sql`${memoriesTable.status} = 'ready' ${iFilter}`);
 
   const personMap = new Map<string, number>();
   for (const r of peopleResult) {
@@ -69,9 +75,7 @@ router.get("/dashboard", async (req, res): Promise<void> => {
   const taskMemories = await db
     .select()
     .from(memoriesTable)
-    .where(
-      sql`${memoriesTable.status} = 'ready' AND array_length(${memoriesTable.tasks}, 1) > 0`
-    )
+    .where(sql`${memoriesTable.status} = 'ready' AND array_length(${memoriesTable.tasks}, 1) > 0 ${iFilter}`)
     .orderBy(desc(memoriesTable.uploadedAt))
     .limit(10);
 
@@ -103,6 +107,7 @@ router.get("/dashboard", async (req, res): Promise<void> => {
     originalName: m.originalName,
     fileType: m.fileType,
     fileSize: m.fileSize,
+    instanceId: m.instanceId ?? null,
     title: m.title,
     summary: m.summary,
     content: m.content,
@@ -133,23 +138,28 @@ router.get("/dashboard", async (req, res): Promise<void> => {
 });
 
 router.get("/filters", async (req, res): Promise<void> => {
+  const instanceId = req.query.instanceId ? parseInt(req.query.instanceId as string, 10) : null;
+  const iFilter = instanceId ? sql`AND ${memoriesTable.instanceId} = ${instanceId}` : sql``;
+  const iWhere = instanceId ? eq(memoriesTable.instanceId, instanceId) : undefined;
+
   const [peopleResult, topicsResult, tagsResult, fileTypesResult] =
     await Promise.all([
       db
         .select({ person: sql<string>`unnest(${memoriesTable.people})` })
         .from(memoriesTable)
-        .where(sql`${memoriesTable.status} = 'ready'`),
+        .where(sql`${memoriesTable.status} = 'ready' ${iFilter}`),
       db
         .select({ topic: sql<string>`unnest(${memoriesTable.topics})` })
         .from(memoriesTable)
-        .where(sql`${memoriesTable.status} = 'ready'`),
+        .where(sql`${memoriesTable.status} = 'ready' ${iFilter}`),
       db
         .select({ tag: sql<string>`unnest(${memoriesTable.tags})` })
         .from(memoriesTable)
-        .where(sql`${memoriesTable.status} = 'ready'`),
+        .where(sql`${memoriesTable.status} = 'ready' ${iFilter}`),
       db
         .select({ fileType: memoriesTable.fileType })
         .from(memoriesTable)
+        .where(iWhere)
         .groupBy(memoriesTable.fileType),
     ]);
 

@@ -15,4 +15,5 @@ export interface CreateTimelineEventRequest {
   type?: CreateTimelineEventRequestType;
   /** @nullable */
   memoryId?: number | null;
+  instanceId?: number;
 }

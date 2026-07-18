@@ -6,9 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface MemoryFileUpload {
-  /** The file to upload (binary) */
-  file: string;
-  /** Instance to assign the memory to */
-  instanceId?: number;
+export interface Instance {
+  id: number;
+  name: string;
+  color: string;
+  createdAt: Date;
 }

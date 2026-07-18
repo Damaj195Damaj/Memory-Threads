@@ -1,12 +1,17 @@
 import React from 'react';
-import { useGetDashboard } from '@workspace/api-client-react';
+import { useGetDashboard, getGetDashboardQueryKey } from '@workspace/api-client-react';
 import { MemoryCard, MemoryCardSkeleton } from '@/components/shared/memory-card';
 import { Brain, FileText, Loader2, Sparkles, Activity, History } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { motion } from 'framer-motion';
+import { useInstance } from '@/contexts/InstanceContext';
 
 export default function Dashboard() {
-  const { data: dashboard, isLoading } = useGetDashboard();
+  const { activeInstanceId } = useInstance();
+  const { data: dashboard, isLoading } = useGetDashboard(
+    { instanceId: activeInstanceId! },
+    { query: { enabled: !!activeInstanceId, queryKey: getGetDashboardQueryKey({ instanceId: activeInstanceId! }) } }
+  );
 
   if (isLoading) {
     return (

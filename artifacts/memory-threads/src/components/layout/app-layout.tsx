@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { InstanceSwitcher } from './instance-switcher';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -36,16 +37,17 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   const SidebarContent = () => (
     <>
-      <div className="p-6">
-        <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 select-none">
+      <div className="p-6 pb-2">
+        <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 select-none mb-6">
           <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center border border-primary/30 shadow-[0_0_15px_rgba(var(--primary)/0.3)] shrink-0">
             <Brain className="h-4 w-4 text-primary glow-text" />
           </div>
           <span className="font-semibold tracking-wide text-foreground truncate">Memory Threads</span>
         </Link>
+        <InstanceSwitcher />
       </div>
 
-      <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
+      <nav className="flex-1 px-4 space-y-1 overflow-y-auto mt-4">
         {navItems.map((item) => {
           const isActive = location === item.href;
           return (

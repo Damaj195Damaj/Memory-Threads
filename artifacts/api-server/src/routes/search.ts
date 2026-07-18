@@ -15,6 +15,7 @@ router.post("/search", async (req, res): Promise<void> => {
   }
 
   const { query, filters, limit = 10 } = parsed.data;
+  const instanceId = req.body.instanceId ? parseInt(String(req.body.instanceId), 10) : null;
 
   // Save search query
   db.insert(searchQueriesTable).values({ query }).catch((err) =>
@@ -24,6 +25,7 @@ router.post("/search", async (req, res): Promise<void> => {
   // Build filter conditions
   const conditions: ReturnType<typeof sql>[] = [
     sql`${memoriesTable.status} = 'ready'`,
+    ...(instanceId ? [sql`${memoriesTable.instanceId} = ${instanceId}`] : []),
   ];
 
   if (filters?.fileTypes?.length) {

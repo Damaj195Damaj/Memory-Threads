@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { sql, desc } from "drizzle-orm";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { db, memoriesTable, searchQueriesTable } from "@workspace/db";
 import { AskMemoryBody } from "@workspace/api-zod";
 import { answerQuestion } from "../lib/ai";
@@ -15,6 +16,8 @@ router.post("/ask", async (req, res): Promise<void> => {
   }
 
   const { question } = parsed.data;
+  const instanceId = req.body.instanceId ? parseInt(String(req.body.instanceId), 10) : null;
+  const instanceFilter = instanceId ? sql`AND ${memoriesTable.instanceId} = ${instanceId}` : sql``;
 
   // OR-based term matching for recall; the LLM decides what's actually relevant
   const orQuery =
@@ -35,6 +38,7 @@ router.post("/ask", async (req, res): Promise<void> => {
     .where(
       sql`
         ${memoriesTable.status} = 'ready'
+        ${instanceFilter}
         AND to_tsvector('english',
           coalesce(${memoriesTable.title}, '') || ' ' ||
           coalesce(${memoriesTable.summary}, '') || ' ' ||
@@ -64,7 +68,7 @@ router.post("/ask", async (req, res): Promise<void> => {
     memories = await db
       .select()
       .from(memoriesTable)
-      .where(sql`${memoriesTable.status} = 'ready'`)
+      .where(sql`${memoriesTable.status} = 'ready' ${instanceFilter}`)
       .orderBy(desc(memoriesTable.uploadedAt))
       .limit(5);
   }

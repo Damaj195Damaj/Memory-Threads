@@ -13,11 +13,16 @@ router.get("/graph", async (req, res): Promise<void> => {
   }
 
   const { limit = 100 } = parsed.data;
+  const instanceId = req.query.instanceId ? parseInt(req.query.instanceId as string, 10) : null;
 
   const memories = await db
     .select()
     .from(memoriesTable)
-    .where(sql`${memoriesTable.status} = 'ready'`)
+    .where(
+      instanceId
+        ? sql`${memoriesTable.status} = 'ready' AND ${memoriesTable.instanceId} = ${instanceId}`
+        : sql`${memoriesTable.status} = 'ready'`
+    )
     .limit(limit);
 
   type NodeType = "memory" | "person" | "organization" | "topic" | "date" | "location" | "task";

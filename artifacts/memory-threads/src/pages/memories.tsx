@@ -1,14 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { useListMemories, useGetFilters } from '@workspace/api-client-react';
+import { useListMemories, useGetFilters, useDeleteAllMemories, getGetFiltersQueryKey, getListMemoriesQueryKey } from '@workspace/api-client-react';
 import { MemoryCard, MemoryCardSkeleton } from '@/components/shared/memory-card';
 import { EmptyState } from '@/components/shared/empty-state';
-import { Search, Filter, SlidersHorizontal, Loader2, X, Menu } from 'lucide-react';
+import { Search, Filter, SlidersHorizontal, Loader2, X, Menu, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useInstance } from '@/contexts/InstanceContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from '@/hooks/use-toast';
 
 export default function Memories() {
+  const { activeInstanceId, activeInstance } = useInstance();
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<{
@@ -24,11 +29,23 @@ export default function Memories() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const { data: filterData } = useGetFilters();
+  const { data: filterData } = useGetFilters(
+    { instanceId: activeInstanceId! }, 
+    { query: { enabled: !!activeInstanceId, queryKey: getGetFiltersQueryKey({ instanceId: activeInstanceId! }) } }
+  );
+  
   const { data: memoryData, isLoading } = useListMemories({
+    instanceId: activeInstanceId!,
     q: debouncedQuery || undefined,
     ...activeFilters,
-  });
+  }, { query: { enabled: !!activeInstanceId, queryKey: getListMemoriesQueryKey({
+    instanceId: activeInstanceId!,
+    q: debouncedQuery || undefined,
+    ...activeFilters,
+  }) } });
+
+  const queryClient = useQueryClient();
+  const deleteAllMutation = useDeleteAllMemories();
 
   const toggleFilter = (key: 'fileType' | 'people' | 'topics', value: string) => {
     setActiveFilters(prev => ({
@@ -41,12 +58,28 @@ export default function Memories() {
 
   const hasActiveFilters = Object.values(activeFilters).some(v => v !== undefined);
 
+  const handleDeleteAll = () => {
+    if (!activeInstanceId) return;
+    deleteAllMutation.mutate(
+      { params: { instanceId: activeInstanceId } },
+      {
+        onSuccess: (res) => {
+          queryClient.invalidateQueries({ queryKey: ['memories'] });
+          queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+          queryClient.invalidateQueries({ queryKey: ['filters'] });
+          toast({ title: `Deleted ${res.deletedCount} memories.` });
+        },
+        onError: () => toast({ title: 'Failed to delete memories', variant: 'destructive' })
+      }
+    );
+  };
+
   return (
     <div className="h-full flex flex-col md:flex-row overflow-hidden relative">
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden relative">
         <div className="p-4 md:p-6 border-b border-white/5 bg-background/80 backdrop-blur-sm z-10 shrink-0">
-          <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 max-w-full">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 max-w-full">
             <div className="relative w-full sm:flex-1 max-w-2xl">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input 
@@ -56,17 +89,42 @@ export default function Memories() {
                 onChange={e => setSearchQuery(e.target.value)}
               />
             </div>
-            <Button 
-              variant="outline" 
-              className={`h-10 sm:h-12 px-4 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 w-full sm:w-auto shrink-0 ${hasActiveFilters ? 'text-primary border-primary/50' : ''}`}
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            >
-              <SlidersHorizontal className="h-4 w-4 mr-2" />
-              Filters
-              {hasActiveFilters && (
-                <span className="ml-2 flex h-2 w-2 rounded-full bg-primary" />
-              )}
-            </Button>
+            <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+              <Button 
+                variant="outline" 
+                className={`h-10 sm:h-12 px-4 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 w-full sm:w-auto shrink-0 ${hasActiveFilters ? 'text-primary border-primary/50' : ''}`}
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              >
+                <SlidersHorizontal className="h-4 w-4 mr-2" />
+                Filters
+                {hasActiveFilters && (
+                  <span className="ml-2 flex h-2 w-2 rounded-full bg-primary" />
+                )}
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-10 sm:h-12 text-red-400 hover:text-red-300 hover:bg-red-500/10 px-3">
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete all
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent className="glass-panel border-white/10">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete all memories?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete all memories in {activeInstance?.name || 'this workspace'}. This cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel className="bg-white/5 border-white/10">Cancel</AlertDialogCancel>
+                    <Button onClick={handleDeleteAll} variant="destructive" disabled={deleteAllMutation.isPending}>
+                      {deleteAllMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                      Delete all
+                    </Button>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </div>
           
           <AnimatePresence>

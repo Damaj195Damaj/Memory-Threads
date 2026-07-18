@@ -5,9 +5,30 @@
  * Memory Threads API - AI-powered memory engine for files
  * OpenAPI spec version: 0.1.0
  */
+export interface Instance {
+  id: number;
+  name: string;
+  color: string;
+  createdAt: string;
+}
+
+export interface CreateInstanceRequest {
+  /** @minLength 1 */
+  name: string;
+  color?: string;
+}
+
+export interface UpdateInstanceRequest {
+  /** @minLength 1 */
+  name?: string;
+  color?: string;
+}
+
 export interface MemoryFileUpload {
   /** The file to upload (binary) */
   file: string;
+  /** Instance to assign the memory to */
+  instanceId?: number;
 }
 
 export interface HealthStatus {
@@ -30,6 +51,8 @@ export interface Memory {
   originalName: string;
   fileType: string;
   fileSize: number;
+  /** @nullable */
+  instanceId?: number | null;
   /** @nullable */
   title?: string | null;
   /** @nullable */
@@ -70,6 +93,7 @@ export interface SearchFilters {
 export interface SearchInput {
   /** @minLength 1 */
   query: string;
+  instanceId?: number;
   filters?: SearchFilters;
   limit?: number;
 }
@@ -91,6 +115,7 @@ export interface SearchResponse {
 export interface AskInput {
   /** @minLength 1 */
   question: string;
+  instanceId?: number;
 }
 
 export interface MemorySource {
@@ -154,6 +179,7 @@ export interface CreateTimelineEventRequest {
   type?: CreateTimelineEventRequestType;
   /** @nullable */
   memoryId?: number | null;
+  instanceId?: number;
 }
 
 export type UpdateTimelineEventRequestType = typeof UpdateTimelineEventRequestType[keyof typeof UpdateTimelineEventRequestType];
@@ -244,11 +270,17 @@ export interface DeleteResponse {
   success: boolean;
 }
 
+export interface DeleteAllResponse {
+  success: boolean;
+  deletedCount: number;
+}
+
 export interface ErrorResponse {
   error: string;
 }
 
 export type ListMemoriesParams = {
+instanceId?: number;
 status?: ListMemoriesStatus;
 fileType?: string;
 people?: string;
@@ -271,14 +303,28 @@ export const ListMemoriesStatus = {
   error: 'error',
 } as const;
 
+export type DeleteAllMemoriesParams = {
+instanceId?: number;
+};
+
 export type GetTimelineParams = {
+instanceId?: number;
 dateFrom?: string;
 dateTo?: string;
 limit?: number;
 };
 
 export type GetGraphParams = {
+instanceId?: number;
 nodeTypes?: string;
 limit?: number;
+};
+
+export type GetDashboardParams = {
+instanceId?: number;
+};
+
+export type GetFiltersParams = {
+instanceId?: number;
 };
 

@@ -6,6 +6,7 @@ import {
   boolean,
   timestamp,
 } from "drizzle-orm/pg-core";
+import { instancesTable } from "./instances";
 
 /**
  * Stores user modifications to the timeline:
@@ -22,6 +23,9 @@ export const timelineEditsTable = pgTable("timeline_edits", {
   memoryId: integer("memory_id"),
   hidden: boolean("hidden").notNull().default(false),
   isCustom: boolean("is_custom").notNull().default(false),
+  instanceId: integer("instance_id").references(() => instancesTable.id, {
+    onDelete: "cascade",
+  }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

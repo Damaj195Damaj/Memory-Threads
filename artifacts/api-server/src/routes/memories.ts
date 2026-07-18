@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { eq, desc, sql, and, gte, lte, arrayOverlaps } from "drizzle-orm";
-import { db, memoriesTable } from "@workspace/db";
+import { db, memoriesTable, timelineEditsTable } from "@workspace/db";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -53,6 +53,7 @@ function formatMemory(m: typeof memoriesTable.$inferSelect) {
     originalName: m.originalName,
     fileType: m.fileType,
     fileSize: m.fileSize,
+    instanceId: m.instanceId ?? null,
     title: m.title,
     summary: m.summary,
     content: m.content,
@@ -73,6 +74,37 @@ function formatMemory(m: typeof memoriesTable.$inferSelect) {
 
 const router = Router();
 
+// DELETE /memories — delete all memories (optionally filtered by instance)
+router.delete("/memories", async (req, res): Promise<void> => {
+  const instanceId = req.query.instanceId
+    ? parseInt(req.query.instanceId as string, 10)
+    : null;
+
+  const where = instanceId ? eq(memoriesTable.instanceId, instanceId) : undefined;
+
+  const rows = await db
+    .select({ filePath: memoriesTable.filePath })
+    .from(memoriesTable)
+    .where(where);
+
+  for (const r of rows) {
+    try { fs.unlinkSync(r.filePath); } catch {}
+  }
+
+  // Delete related timeline edits for this instance
+  if (instanceId) {
+    await db
+      .delete(timelineEditsTable)
+      .where(eq(timelineEditsTable.instanceId, instanceId));
+  } else {
+    await db.delete(timelineEditsTable);
+  }
+
+  await db.delete(memoriesTable).where(where);
+
+  res.json({ success: true, deletedCount: rows.length });
+});
+
 // GET /memories
 router.get("/memories", async (req, res): Promise<void> => {
   const parsed = ListMemoriesQueryParams.safeParse(req.query);
@@ -81,50 +113,39 @@ router.get("/memories", async (req, res): Promise<void> => {
     return;
   }
   const { status, fileType, people, topics, tags, dateFrom, dateTo, q, limit = 50, offset = 0 } = parsed.data;
+  const instanceId = req.query.instanceId
+    ? parseInt(req.query.instanceId as string, 10)
+    : null;
 
   const conditions: ReturnType<typeof eq>[] = [];
 
   if (status) conditions.push(eq(memoriesTable.status, status));
   if (fileType) conditions.push(eq(memoriesTable.fileType, fileType));
+  if (instanceId) conditions.push(eq(memoriesTable.instanceId, instanceId));
+
+  const extraConditions = [
+    ...(people ? [sql`${memoriesTable.people} @> ARRAY[${people}::text]`] : []),
+    ...(topics ? [sql`${memoriesTable.topics} @> ARRAY[${topics}::text]`] : []),
+    ...(tags ? [sql`${memoriesTable.tags} @> ARRAY[${tags}::text]`] : []),
+    ...(dateFrom ? [gte(memoriesTable.uploadedAt, new Date(dateFrom))] : []),
+    ...(dateTo ? [lte(memoriesTable.uploadedAt, new Date(dateTo))] : []),
+    ...(q
+      ? [sql`to_tsvector('english', coalesce(${memoriesTable.title},'') || ' ' || coalesce(${memoriesTable.summary},'') || ' ' || array_to_string(${memoriesTable.people}, ' ') || ' ' || array_to_string(${memoriesTable.topics}, ' ') || ' ' || array_to_string(${memoriesTable.tags}, ' ')) @@ websearch_to_tsquery('english', ${q})`]
+      : []),
+  ];
 
   const rows = await db
     .select()
     .from(memoriesTable)
-    .where(
-      conditions.length > 0
-        ? and(
-            ...conditions,
-            ...(people ? [sql`${memoriesTable.people} @> ARRAY[${people}::text]`] : []),
-            ...(topics ? [sql`${memoriesTable.topics} @> ARRAY[${topics}::text]`] : []),
-            ...(tags ? [sql`${memoriesTable.tags} @> ARRAY[${tags}::text]`] : []),
-            ...(dateFrom ? [gte(memoriesTable.uploadedAt, new Date(dateFrom))] : []),
-            ...(dateTo ? [lte(memoriesTable.uploadedAt, new Date(dateTo))] : []),
-            ...(q
-              ? [
-                  sql`to_tsvector('english', coalesce(${memoriesTable.title},'') || ' ' || coalesce(${memoriesTable.summary},'') || ' ' || array_to_string(${memoriesTable.people}, ' ') || ' ' || array_to_string(${memoriesTable.topics}, ' ') || ' ' || array_to_string(${memoriesTable.tags}, ' ')) @@ websearch_to_tsquery('english', ${q})`,
-                ]
-              : []),
-          )
-        : and(
-            ...(people ? [sql`${memoriesTable.people} @> ARRAY[${people}::text]`] : []),
-            ...(topics ? [sql`${memoriesTable.topics} @> ARRAY[${topics}::text]`] : []),
-            ...(tags ? [sql`${memoriesTable.tags} @> ARRAY[${tags}::text]`] : []),
-            ...(dateFrom ? [gte(memoriesTable.uploadedAt, new Date(dateFrom))] : []),
-            ...(dateTo ? [lte(memoriesTable.uploadedAt, new Date(dateTo))] : []),
-            ...(q
-              ? [
-                  sql`to_tsvector('english', coalesce(${memoriesTable.title},'') || ' ' || coalesce(${memoriesTable.summary},'') || ' ' || array_to_string(${memoriesTable.people}, ' ') || ' ' || array_to_string(${memoriesTable.topics}, ' ') || ' ' || array_to_string(${memoriesTable.tags}, ' ')) @@ websearch_to_tsquery('english', ${q})`,
-                ]
-              : []),
-          )
-    )
+    .where(and(...conditions, ...extraConditions))
     .orderBy(desc(memoriesTable.uploadedAt))
     .limit(limit)
     .offset(offset);
 
   const countResult = await db
     .select({ count: sql<number>`count(*)` })
-    .from(memoriesTable);
+    .from(memoriesTable)
+    .where(and(...conditions));
   const total = Number(countResult[0]?.count ?? 0);
 
   res.json({ memories: rows.map(formatMemory), total });
@@ -260,6 +281,10 @@ router.post(
       const ext = path.extname(file.originalname).toLowerCase().slice(1);
       const fileType = ext || file.mimetype.split("/")[1] || "unknown";
 
+      const uploadInstanceId = req.body?.instanceId
+        ? parseInt(String(req.body.instanceId), 10)
+        : null;
+
       const [memory] = await db
         .insert(memoriesTable)
         .values({
@@ -269,6 +294,7 @@ router.post(
           fileSize: file.size,
           filePath: file.path,
           status: "pending",
+          instanceId: uploadInstanceId || null,
         })
         .returning();
 

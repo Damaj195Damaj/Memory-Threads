@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: instances
+    description: Instance (workspace) operations
   - name: memories
     description: Memory (file) operations
   - name: search
@@ -37,12 +39,108 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
 
+  /instances:
+    get:
+      operationId: listInstances
+      tags: [instances]
+      summary: List all instances
+      responses:
+        "200":
+          description: List of instances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Instance"
+    post:
+      operationId: createInstance
+      tags: [instances]
+      summary: Create a new instance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInstanceRequest"
+      responses:
+        "201":
+          description: Created instance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Instance"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /instances/{id}:
+    put:
+      operationId: updateInstance
+      tags: [instances]
+      summary: Rename or recolor an instance
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateInstanceRequest"
+      responses:
+        "200":
+          description: Updated instance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Instance"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteInstance
+      tags: [instances]
+      summary: Delete an instance and all its memories
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /memories:
     get:
       operationId: listMemories
       tags: [memories]
       summary: List all memories
       parameters:
+        - in: query
+          name: instanceId
+          schema:
+            type: integer
         - in: query
           name: status
           schema:
@@ -93,6 +191,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MemoryListResponse"
+    delete:
+      operationId: deleteAllMemories
+      tags: [memories]
+      summary: Delete all memories (optionally scoped to an instance)
+      parameters:
+        - in: query
+          name: instanceId
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteAllResponse"
 
   /memories/upload:
     post:
@@ -146,7 +260,7 @@ paths:
     delete:
       operationId: deleteMemory
       tags: [memories]
-      summary: Delete a memory
+      summary: Delete a single memory by id
       parameters:
         - in: path
           name: id
@@ -232,6 +346,10 @@ paths:
       tags: [timeline]
       summary: Get chronological timeline of memories and events
       parameters:
+        - in: query
+          name: instanceId
+          schema:
+            type: integer
         - in: query
           name: dateFrom
           schema:
@@ -335,6 +453,10 @@ paths:
       summary: Get relationship graph data
       parameters:
         - in: query
+          name: instanceId
+          schema:
+            type: integer
+        - in: query
           name: nodeTypes
           schema:
             type: string
@@ -356,6 +478,11 @@ paths:
       operationId: getDashboard
       tags: [dashboard]
       summary: Get dashboard statistics
+      parameters:
+        - in: query
+          name: instanceId
+          schema:
+            type: integer
       responses:
         "200":
           description: Dashboard stats
@@ -369,6 +496,11 @@ paths:
       operationId: getFilters
       tags: [dashboard]
       summary: Get available filter options
+      parameters:
+        - in: query
+          name: instanceId
+          schema:
+            type: integer
       responses:
         "200":
           description: Filter options
@@ -379,6 +511,44 @@ paths:
 
 components:
   schemas:
+    Instance:
+      type: object
+      required:
+        - id
+        - name
+        - color
+        - createdAt
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        color:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateInstanceRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+        color:
+          type: string
+
+    UpdateInstanceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        color:
+          type: string
+
     # Note: server accepts one or more files under any multipart field name (frontend uses "files")
     MemoryFileUpload:
       type: object
@@ -387,6 +557,9 @@ components:
         file:
           type: string
           description: The file to upload (binary)
+        instanceId:
+          type: integer
+          description: Instance to assign the memory to
 
     HealthStatus:
       type: object
@@ -416,6 +589,8 @@ components:
           type: string
         fileSize:
           type: integer
+        instanceId:
+          type: ["integer", "null"]
         title:
           type: ["string", "null"]
         summary:
@@ -485,6 +660,8 @@ components:
         query:
           type: string
           minLength: 1
+        instanceId:
+          type: integer
         filters:
           $ref: "#/components/schemas/SearchFilters"
         limit:
@@ -554,6 +731,8 @@ components:
         question:
           type: string
           minLength: 1
+        instanceId:
+          type: integer
 
     MemorySource:
       type: object
@@ -638,6 +817,8 @@ components:
           enum: [upload, event, deadline, mention]
         memoryId:
           type: ["integer", "null"]
+        instanceId:
+          type: integer
 
     UpdateTimelineEventRequest:
       type: object
@@ -805,6 +986,17 @@ components:
       properties:
         success:
           type: boolean
+
+    DeleteAllResponse:
+      type: object
+      required:
+        - success
+        - deletedCount
+      properties:
+        success:
+          type: boolean
+        deletedCount:
+          type: integer
 
     ErrorResponse:
       type: object

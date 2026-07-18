@@ -8,6 +8,7 @@
 import type { ListMemoriesStatus } from './listMemoriesStatus';
 
 export type ListMemoriesParams = {
+instanceId?: number;
 status?: ListMemoriesStatus;
 fileType?: string;
 people?: string;

@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { useGetGraph } from '@workspace/api-client-react';
+import { useGetGraph, getGetGraphQueryKey } from '@workspace/api-client-react';
 import { GraphNode, GraphEdge } from '@workspace/api-client-react';
 import { Loader2, Brain, Maximize, ZoomIn, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useLocation } from 'wouter';
 import { Input } from '@/components/ui/input';
+import { useInstance } from '@/contexts/InstanceContext';
 
 interface PositionedNode extends GraphNode {
   x: number;
@@ -12,7 +13,11 @@ interface PositionedNode extends GraphNode {
 }
 
 export default function Graph() {
-  const { data: graphData, isLoading } = useGetGraph();
+  const { activeInstanceId } = useInstance();
+  const { data: graphData, isLoading } = useGetGraph(
+    { instanceId: activeInstanceId! },
+    { query: { enabled: !!activeInstanceId, queryKey: getGetGraphQueryKey({ instanceId: activeInstanceId! }) } }
+  );
   const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
   

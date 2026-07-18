@@ -15,9 +15,14 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/components/ui/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
+import { useInstance } from '@/contexts/InstanceContext';
 
 export default function Timeline() {
-  const { data: timelineEvents, isLoading } = useGetTimeline();
+  const { activeInstanceId } = useInstance();
+  const { data: timelineEvents, isLoading } = useGetTimeline(
+    { instanceId: activeInstanceId! },
+    { query: { enabled: !!activeInstanceId, queryKey: getGetTimelineQueryKey({ instanceId: activeInstanceId! }) } }
+  );
   const [isAddOpen, setIsAddOpen] = useState(false);
 
   if (isLoading) {
@@ -246,6 +251,7 @@ function EventDialog({
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
+  const { activeInstanceId } = useInstance();
   const [internalOpen, setInternalOpen] = useState(false);
   const isOpen = open !== undefined ? open : internalOpen;
   const setOpen = onOpenChange || setInternalOpen;
@@ -276,7 +282,7 @@ function EventDialog({
 
     if (mode === 'create') {
       createMutation.mutate(
-        { data: { title, description, date: date.toISOString(), type: 'event' } },
+        { data: { title, description, date: date.toISOString(), type: 'event', instanceId: activeInstanceId ? Number(activeInstanceId) : undefined } },
         {
           onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: getGetTimelineQueryKey() });

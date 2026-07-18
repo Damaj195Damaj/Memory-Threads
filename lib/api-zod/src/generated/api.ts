@@ -18,12 +18,79 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary List all instances
+ */
+export const ListInstancesResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+export const ListInstancesResponse = zod.array(ListInstancesResponseItem)
+
+
+/**
+ * @summary Create a new instance
+ */
+
+
+
+export const CreateInstanceBody = zod.object({
+  "name": zod.string().min(1),
+  "color": zod.string().optional()
+})
+
+export const CreateInstanceResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Rename or recolor an instance
+ */
+export const UpdateInstanceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const UpdateInstanceBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "color": zod.string().optional()
+})
+
+export const UpdateInstanceResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete an instance and all its memories
+ */
+export const DeleteInstanceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteInstanceResponse = zod.object({
+  "success": zod.boolean()
+})
+
+
+/**
  * @summary List all memories
  */
 export const listMemoriesQueryLimitDefault = 50;
 export const listMemoriesQueryOffsetDefault = 0;
 
 export const ListMemoriesQueryParams = zod.object({
+  "instanceId": zod.coerce.number().optional(),
   "status": zod.enum(['pending', 'processing', 'ready', 'error']).optional(),
   "fileType": zod.coerce.string().optional(),
   "people": zod.coerce.string().optional(),
@@ -43,6 +110,7 @@ export const ListMemoriesResponse = zod.object({
   "originalName": zod.string(),
   "fileType": zod.string(),
   "fileSize": zod.number(),
+  "instanceId": zod.number().nullish(),
   "title": zod.string().nullish(),
   "summary": zod.string().nullish(),
   "content": zod.string().nullish(),
@@ -64,10 +132,24 @@ export const ListMemoriesResponse = zod.object({
 
 
 /**
+ * @summary Delete all memories (optionally scoped to an instance)
+ */
+export const DeleteAllMemoriesQueryParams = zod.object({
+  "instanceId": zod.coerce.number().optional()
+})
+
+export const DeleteAllMemoriesResponse = zod.object({
+  "success": zod.boolean(),
+  "deletedCount": zod.number()
+})
+
+
+/**
  * @summary Upload one or more files (including .zip/.7z archives) to create memories
  */
 export const UploadMemoryBody = zod.object({
-  "file": zod.string().describe('The file to upload (binary)')
+  "file": zod.string().describe('The file to upload (binary)'),
+  "instanceId": zod.number().optional().describe('Instance to assign the memory to')
 })
 
 export const UploadMemoryResponse = zod.object({
@@ -77,6 +159,7 @@ export const UploadMemoryResponse = zod.object({
   "originalName": zod.string(),
   "fileType": zod.string(),
   "fileSize": zod.number(),
+  "instanceId": zod.number().nullish(),
   "title": zod.string().nullish(),
   "summary": zod.string().nullish(),
   "content": zod.string().nullish(),
@@ -109,6 +192,7 @@ export const GetMemoryResponse = zod.object({
   "originalName": zod.string(),
   "fileType": zod.string(),
   "fileSize": zod.number(),
+  "instanceId": zod.number().nullish(),
   "title": zod.string().nullish(),
   "summary": zod.string().nullish(),
   "content": zod.string().nullish(),
@@ -128,7 +212,7 @@ export const GetMemoryResponse = zod.object({
 
 
 /**
- * @summary Delete a memory
+ * @summary Delete a single memory by id
  */
 export const DeleteMemoryParams = zod.object({
   "id": zod.coerce.number()
@@ -152,6 +236,7 @@ export const GetRelatedMemoriesResponseItem = zod.object({
   "originalName": zod.string(),
   "fileType": zod.string(),
   "fileSize": zod.number(),
+  "instanceId": zod.number().nullish(),
   "title": zod.string().nullish(),
   "summary": zod.string().nullish(),
   "content": zod.string().nullish(),
@@ -179,6 +264,7 @@ export const searchMemoriesBodyLimitDefault = 10;
 
 export const SearchMemoriesBody = zod.object({
   "query": zod.string().min(1),
+  "instanceId": zod.number().optional(),
   "filters": zod.object({
   "fileTypes": zod.array(zod.string()).optional(),
   "people": zod.array(zod.string()).optional(),
@@ -198,6 +284,7 @@ export const SearchMemoriesResponse = zod.object({
   "originalName": zod.string(),
   "fileType": zod.string(),
   "fileSize": zod.number(),
+  "instanceId": zod.number().nullish(),
   "title": zod.string().nullish(),
   "summary": zod.string().nullish(),
   "content": zod.string().nullish(),
@@ -230,7 +317,8 @@ export const SearchMemoriesResponse = zod.object({
 
 
 export const AskMemoryBody = zod.object({
-  "question": zod.string().min(1)
+  "question": zod.string().min(1),
+  "instanceId": zod.number().optional()
 })
 
 export const AskMemoryResponse = zod.object({
@@ -253,6 +341,7 @@ export const AskMemoryResponse = zod.object({
 export const getTimelineQueryLimitDefault = 100;
 
 export const GetTimelineQueryParams = zod.object({
+  "instanceId": zod.coerce.number().optional(),
   "dateFrom": zod.coerce.string().optional(),
   "dateTo": zod.coerce.string().optional(),
   "limit": zod.coerce.number().default(getTimelineQueryLimitDefault)
@@ -280,7 +369,8 @@ export const CreateTimelineEventBody = zod.object({
   "title": zod.string(),
   "description": zod.string().nullish(),
   "type": zod.enum(['upload', 'event', 'deadline', 'mention']).optional(),
-  "memoryId": zod.number().nullish()
+  "memoryId": zod.number().nullish(),
+  "instanceId": zod.number().optional()
 })
 
 export const CreateTimelineEventResponse = zod.object({
@@ -341,6 +431,7 @@ export const DeleteTimelineEventResponse = zod.object({
 export const getGraphQueryLimitDefault = 100;
 
 export const GetGraphQueryParams = zod.object({
+  "instanceId": zod.coerce.number().optional(),
   "nodeTypes": zod.coerce.string().optional(),
   "limit": zod.coerce.number().default(getGraphQueryLimitDefault)
 })
@@ -365,6 +456,10 @@ export const GetGraphResponse = zod.object({
 /**
  * @summary Get dashboard statistics
  */
+export const GetDashboardQueryParams = zod.object({
+  "instanceId": zod.coerce.number().optional()
+})
+
 export const GetDashboardResponse = zod.object({
   "totalMemories": zod.number(),
   "processingCount": zod.number(),
@@ -375,6 +470,7 @@ export const GetDashboardResponse = zod.object({
   "originalName": zod.string(),
   "fileType": zod.string(),
   "fileSize": zod.number(),
+  "instanceId": zod.number().nullish(),
   "title": zod.string().nullish(),
   "summary": zod.string().nullish(),
   "content": zod.string().nullish(),
@@ -417,6 +513,10 @@ export const GetDashboardResponse = zod.object({
 /**
  * @summary Get available filter options
  */
+export const GetFiltersQueryParams = zod.object({
+  "instanceId": zod.coerce.number().optional()
+})
+
 export const GetFiltersResponse = zod.object({
   "people": zod.array(zod.string()),
   "topics": zod.array(zod.string()),

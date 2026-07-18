@@ -9,4 +9,5 @@
 export interface AskInput {
   /** @minLength 1 */
   question: string;
+  instanceId?: number;
 }

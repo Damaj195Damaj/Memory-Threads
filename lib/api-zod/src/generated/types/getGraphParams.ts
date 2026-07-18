@@ -7,6 +7,7 @@
  */
 
 export type GetGraphParams = {
+instanceId?: number;
 nodeTypes?: string;
 limit?: number;
 };

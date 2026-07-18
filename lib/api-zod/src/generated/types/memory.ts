@@ -14,6 +14,8 @@ export interface Memory {
   fileType: string;
   fileSize: number;
   /** @nullable */
+  instanceId?: number | null;
+  /** @nullable */
   title?: string | null;
   /** @nullable */
   summary?: string | null;
