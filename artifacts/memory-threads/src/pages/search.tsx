@@ -90,8 +90,8 @@ export default function Search() {
                       <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-primary to-transparent opacity-50" />
                       
                       {/* Reason Badge */}
-                      <div className="absolute top-3 right-3 md:top-4 md:right-4 z-20 max-w-[calc(100%-80px)]">
-                        <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 md:px-3 md:py-1 text-[10px] md:text-xs font-medium text-primary shadow-sm backdrop-blur-md truncate max-w-full">
+                      <div className="absolute top-3 right-3 md:top-4 md:right-4 z-20 max-w-[65%] md:max-w-[55%]">
+                        <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 md:px-3 md:py-1 text-[10px] md:text-xs font-medium text-primary shadow-sm backdrop-blur-md truncate max-w-[10rem] md:max-w-[14rem]">
                           <Sparkles className="mr-1.5 h-3 w-3 shrink-0" />
                           <span className="truncate">{result.matchReason}</span>
                         </span>
