@@ -68,6 +68,7 @@ export default function Memories() {
           queryClient.invalidateQueries({ queryKey: ['dashboard'] });
           queryClient.invalidateQueries({ queryKey: ['filters'] });
           toast({ title: `Deleted ${res.deletedCount} memories.` });
+          window.location.reload();
         },
         onError: () => toast({ title: 'Failed to delete memories', variant: 'destructive' })
       }
