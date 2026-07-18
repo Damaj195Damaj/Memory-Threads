@@ -3,13 +3,25 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Memory Threads API - AI-powered memory engine for files
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: memories
+    description: Memory (file) operations
+  - name: search
+    description: AI-powered search
+  - name: ask
+    description: AI Q&A over memories
+  - name: timeline
+    description: Chronological timeline
+  - name: graph
+    description: Relationship graph
+  - name: dashboard
+    description: Dashboard statistics
 paths:
   /healthz:
     get:
@@ -24,8 +36,358 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /memories:
+    get:
+      operationId: listMemories
+      tags: [memories]
+      summary: List all memories
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, processing, ready, error]
+        - in: query
+          name: fileType
+          schema:
+            type: string
+        - in: query
+          name: people
+          schema:
+            type: string
+        - in: query
+          name: topics
+          schema:
+            type: string
+        - in: query
+          name: tags
+          schema:
+            type: string
+        - in: query
+          name: dateFrom
+          schema:
+            type: string
+        - in: query
+          name: dateTo
+          schema:
+            type: string
+        - in: query
+          name: q
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of memories
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemoryListResponse"
+
+  /memories/upload:
+    post:
+      operationId: uploadMemory
+      tags: [memories]
+      summary: Upload one or more files (including .zip/.7z archives) to create memories
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/MemoryFileUpload"
+      responses:
+        "201":
+          description: Memories created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemoryUploadResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /memories/{id}:
+    get:
+      operationId: getMemory
+      tags: [memories]
+      summary: Get a single memory
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Memory detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Memory"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteMemory
+      tags: [memories]
+      summary: Delete a memory
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /memories/{id}/related:
+    get:
+      operationId: getRelatedMemories
+      tags: [memories]
+      summary: Get memories related to a given memory
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Related memories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Memory"
+
+  /search:
+    post:
+      operationId: searchMemories
+      tags: [search]
+      summary: AI-powered natural language search
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchInput"
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResponse"
+
+  /ask:
+    post:
+      operationId: askMemory
+      tags: [ask]
+      summary: Ask a question over your memories
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AskInput"
+      responses:
+        "200":
+          description: AI answer with citations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AskResponse"
+
+  /timeline:
+    get:
+      operationId: getTimeline
+      tags: [timeline]
+      summary: Get chronological timeline of memories and events
+      parameters:
+        - in: query
+          name: dateFrom
+          schema:
+            type: string
+        - in: query
+          name: dateTo
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: Timeline events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TimelineEvent"
+
+  /timeline/events:
+    post:
+      operationId: createTimelineEvent
+      tags: [timeline]
+      summary: Create a custom timeline event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTimelineEventRequest"
+      responses:
+        "201":
+          description: Event created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimelineEvent"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /timeline/events/{id}:
+    put:
+      operationId: updateTimelineEvent
+      tags: [timeline]
+      summary: Update or override a timeline event (works for auto-generated and custom events)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTimelineEventRequest"
+      responses:
+        "200":
+          description: Updated event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimelineEvent"
+        "404":
+          description: Event not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteTimelineEvent
+      tags: [timeline]
+      summary: Hide an auto-generated event or delete a custom event
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResponse"
+
+  /graph:
+    get:
+      operationId: getGraph
+      tags: [graph]
+      summary: Get relationship graph data
+      parameters:
+        - in: query
+          name: nodeTypes
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: Graph nodes and edges
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GraphData"
+
+  /dashboard:
+    get:
+      operationId: getDashboard
+      tags: [dashboard]
+      summary: Get dashboard statistics
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /filters:
+    get:
+      operationId: getFilters
+      tags: [dashboard]
+      summary: Get available filter options
+      responses:
+        "200":
+          description: Filter options
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FilterOptions"
+
 components:
   schemas:
+    # Note: server accepts one or more files under any multipart field name (frontend uses "files")
+    MemoryFileUpload:
+      type: object
+      required: [file]
+      properties:
+        file:
+          type: string
+          description: The file to upload (binary)
+
     HealthStatus:
       type: object
       properties:
@@ -34,3 +396,420 @@ components:
       required:
         - status
 
+    Memory:
+      type: object
+      required:
+        - id
+        - originalName
+        - fileType
+        - fileSize
+        - status
+        - uploadedAt
+      properties:
+        id:
+          type: integer
+        filename:
+          type: string
+        originalName:
+          type: string
+        fileType:
+          type: string
+        fileSize:
+          type: integer
+        title:
+          type: ["string", "null"]
+        summary:
+          type: ["string", "null"]
+        content:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [pending, processing, ready, error]
+        confidence:
+          type: ["number", "null"]
+        tags:
+          type: array
+          items:
+            type: string
+        people:
+          type: array
+          items:
+            type: string
+        organizations:
+          type: array
+          items:
+            type: string
+        locations:
+          type: array
+          items:
+            type: string
+        dates:
+          type: array
+          items:
+            type: string
+        tasks:
+          type: array
+          items:
+            type: string
+        topics:
+          type: array
+          items:
+            type: string
+        uploadedAt:
+          type: string
+          format: date-time
+        processedAt:
+          type: ["string", "null"]
+          format: date-time
+        errorMessage:
+          type: ["string", "null"]
+
+    MemoryListResponse:
+      type: object
+      required:
+        - memories
+        - total
+      properties:
+        memories:
+          type: array
+          items:
+            $ref: "#/components/schemas/Memory"
+        total:
+          type: integer
+
+    SearchInput:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          minLength: 1
+        filters:
+          $ref: "#/components/schemas/SearchFilters"
+        limit:
+          type: integer
+          default: 10
+
+    SearchFilters:
+      type: object
+      properties:
+        fileTypes:
+          type: array
+          items:
+            type: string
+        people:
+          type: array
+          items:
+            type: string
+        topics:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        dateFrom:
+          type: string
+        dateTo:
+          type: string
+
+    SearchResult:
+      type: object
+      required:
+        - memory
+        - relevanceScore
+        - matchReason
+      properties:
+        memory:
+          $ref: "#/components/schemas/Memory"
+        relevanceScore:
+          type: number
+        matchReason:
+          type: string
+        matchedSnippet:
+          type: ["string", "null"]
+
+    SearchResponse:
+      type: object
+      required:
+        - results
+        - query
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchResult"
+        query:
+          type: string
+        totalFound:
+          type: integer
+
+    AskInput:
+      type: object
+      required:
+        - question
+      properties:
+        question:
+          type: string
+          minLength: 1
+
+    MemorySource:
+      type: object
+      required:
+        - memoryId
+        - originalName
+        - relevance
+      properties:
+        memoryId:
+          type: integer
+        originalName:
+          type: string
+        title:
+          type: ["string", "null"]
+        relevance:
+          type: number
+        excerpt:
+          type: ["string", "null"]
+
+    AskResponse:
+      type: object
+      required:
+        - answer
+        - sources
+        - confidence
+      properties:
+        answer:
+          type: string
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemorySource"
+        confidence:
+          type: number
+        reasoning:
+          type: ["string", "null"]
+
+    TimelineEvent:
+      type: object
+      required:
+        - id
+        - date
+        - title
+        - type
+      properties:
+        id:
+          type: string
+        date:
+          type: string
+          format: date-time
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        type:
+          type: string
+          enum: [upload, event, deadline, mention]
+        memoryId:
+          type: ["integer", "null"]
+        memoryName:
+          type: ["string", "null"]
+        isCustom:
+          type: boolean
+        isEdited:
+          type: boolean
+
+    CreateTimelineEventRequest:
+      type: object
+      required:
+        - date
+        - title
+      properties:
+        date:
+          type: string
+          format: date-time
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        type:
+          type: string
+          enum: [upload, event, deadline, mention]
+        memoryId:
+          type: ["integer", "null"]
+
+    UpdateTimelineEventRequest:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date-time
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        type:
+          type: string
+          enum: [upload, event, deadline, mention]
+
+    MemoryUploadResponse:
+      type: object
+      required:
+        - memories
+      properties:
+        memories:
+          type: array
+          items:
+            $ref: "#/components/schemas/Memory"
+
+    GraphNode:
+      type: object
+      required:
+        - id
+        - type
+        - label
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [memory, person, organization, topic, date, location, task]
+        label:
+          type: string
+        count:
+          type: integer
+        memoryId:
+          type: ["integer", "null"]
+
+    GraphEdge:
+      type: object
+      required:
+        - source
+        - target
+        - type
+      properties:
+        source:
+          type: string
+        target:
+          type: string
+        type:
+          type: string
+        weight:
+          type: number
+
+    GraphData:
+      type: object
+      required:
+        - nodes
+        - edges
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/GraphNode"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/GraphEdge"
+
+    DashboardStats:
+      type: object
+      required:
+        - totalMemories
+        - processingCount
+        - readyCount
+        - recentUploads
+        - topTopics
+        - mostMentionedPeople
+        - recentSearches
+      properties:
+        totalMemories:
+          type: integer
+        processingCount:
+          type: integer
+        readyCount:
+          type: integer
+        recentUploads:
+          type: array
+          items:
+            $ref: "#/components/schemas/Memory"
+        topTopics:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopicCount"
+        mostMentionedPeople:
+          type: array
+          items:
+            $ref: "#/components/schemas/PersonCount"
+        upcomingDeadlines:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimelineEvent"
+        recentSearches:
+          type: array
+          items:
+            type: string
+
+    TopicCount:
+      type: object
+      required:
+        - topic
+        - count
+      properties:
+        topic:
+          type: string
+        count:
+          type: integer
+
+    PersonCount:
+      type: object
+      required:
+        - person
+        - count
+      properties:
+        person:
+          type: string
+        count:
+          type: integer
+
+    FilterOptions:
+      type: object
+      required:
+        - people
+        - topics
+        - tags
+        - fileTypes
+      properties:
+        people:
+          type: array
+          items:
+            type: string
+        topics:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        fileTypes:
+          type: array
+          items:
+            type: string
+
+    DeleteResponse:
+      type: object
+      required:
+        - success
+      properties:
+        success:
+          type: boolean
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string

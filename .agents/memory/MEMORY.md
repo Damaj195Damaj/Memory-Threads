@@ -1,0 +1,4 @@
+- [DeepSeek API setup](deepseek-api.md) — Uses OpenAI SDK with custom baseURL; no embeddings support so search uses PostgreSQL FTS + LLM reranking
+- [pdf-parse import quirk](pdf-parse-import.md) — CJS module, must use dynamic import with default fallback pattern
+- [DB schema rebuild rule](db-schema-rebuild.md) — After changing lib/db/src/schema/, always run typecheck:libs before artifact typechecks
+- [File upload flow](file-upload-flow.md) — multer handles upload, processMemory fires async (no await), client polls for status
