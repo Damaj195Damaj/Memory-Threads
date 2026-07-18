@@ -5,6 +5,8 @@ import { db, memoriesTable, timelineEditsTable } from "@workspace/db";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import {
   ListMemoriesQueryParams,
   GetMemoryParams,
@@ -168,6 +170,14 @@ interface IncomingFile {
 
 const SUPPORTED_EXTS = [".pdf", ".docx", ".txt", ".md", ".csv", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"];
 
+const execFileAsync = promisify(execFile);
+
+function extract7z(src: string, dest: string): Promise<void> {
+  return execFileAsync("7z", ["x", src, `-o${dest}`, "-y"], {
+    maxBuffer: 10 * 1024 * 1024,
+  }).then(() => undefined);
+}
+
 // Guards against decompression bombs
 const MAX_EXTRACTED_FILES = 50;
 const MAX_ENTRY_BYTES = 25 * 1024 * 1024; // 25MB per extracted file
@@ -219,14 +229,9 @@ async function expandArchives(files: IncomingFile[]): Promise<IncomingFile[]> {
       }
     } else if (ext === ".7z") {
       try {
-        const sevenZip = (await import("7zip-min")) as unknown as {
-          unpack: (src: string, dest: string, cb: (err: Error | null) => void) => void;
-        };
         const extractDir = path.join(UPLOADS_DIR, `7z-${Date.now()}-${Math.random().toString(36).slice(2)}`);
         fs.mkdirSync(extractDir, { recursive: true });
-        await new Promise<void>((resolve, reject) => {
-          sevenZip.unpack(file.path, extractDir, (err) => (err ? reject(err) : resolve()));
-        });
+        await extract7z(file.path, extractDir);
         const walk = (dir: string): string[] =>
           fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => {
             const full = path.join(dir, d.name);

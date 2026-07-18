@@ -114,9 +114,11 @@ export default function Upload() {
       setFiles(prev => prev.map(f => ({ ...f, status: 'success' })));
       setOverallStatus('done');
       
+      const docCount = data.memories?.length ?? 1;
+      const docLabel = docCount === 1 ? '1 document' : `${docCount} documents`;
       toast({
         title: "Files uploaded successfully",
-        description: `Memory engine has started processing your ${data.memories?.length || 'file(s)'}.`,
+        description: `Memory engine has started processing your ${docLabel}.`,
       });
 
       // Brief delay to show success states
