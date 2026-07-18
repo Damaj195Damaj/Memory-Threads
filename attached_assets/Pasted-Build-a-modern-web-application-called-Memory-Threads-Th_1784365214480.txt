@@ -1,0 +1,307 @@
+Build a modern web application called "Memory Threads".
+
+The vision:
+Memory Threads is an AI-powered memory engine for a user's files. Instead of searching by filename, users search by memory, context, people, events, descriptions, or conversations.
+
+Examples:
+- "The PDF my professor sent before the midterm."
+- "The screenshot with the purple error."
+- "The presentation mentioning AI agents."
+- "What did John tell me about authentication?"
+- "What happened last Tuesday?"
+
+This is NOT a chatbot. The AI should reason over a persistent knowledge base built from uploaded files.
+
+---------------------------------
+TECH STACK
+---------------------------------
+
+Frontend:
+- React
+- TypeScript
+- TailwindCSS
+- shadcn/ui
+- Framer Motion
+
+Backend:
+- Node.js
+- Express
+
+Database:
+- PostgreSQL (Supabase if possible)
+
+Vector Search:
+- pgvector or ChromaDB
+
+AI:
+- Deepseek API
+
+---------------------------------
+CORE FEATURES
+---------------------------------
+
+1. Upload files
+
+Support:
+
+- PDF
+- DOCX
+- TXT
+- Images
+- CSV
+- Markdown
+
+Future-ready architecture so audio/video can be added later.
+
+---------------------------------
+
+2. Automatic Processing
+
+For every uploaded file:
+
+- Extract text
+- Generate AI summary
+- Detect people
+- Detect organizations
+- Detect dates
+- Detect locations
+- Detect tasks
+- Detect topics
+- Generate embeddings
+- Save metadata
+- Save vector
+- Build relationships
+
+---------------------------------
+
+3. Memory Cards
+
+Each file becomes a beautiful Memory Card containing:
+
+- title
+- preview
+- summary
+- tags
+- people
+- dates
+- organizations
+- confidence
+- related memories
+
+---------------------------------
+
+4. AI Search
+
+Search bar accepts natural language.
+
+Examples:
+
+"The PDF about climate change."
+
+"The image with three people."
+
+"The invoice due next week."
+
+"My contract with Apple."
+
+Return ranked memories.
+
+Each result shows WHY it matched.
+
+---------------------------------
+
+5. Ask Memory
+
+Users can ask questions like:
+
+"What should I do next week?"
+
+"What documents mention React?"
+
+"What files involve John?"
+
+"What happened before the launch?"
+
+The assistant answers using retrieved memories.
+
+Every answer must cite its sources.
+
+---------------------------------
+
+6. Timeline
+
+Automatically generate a chronological timeline using:
+
+- file dates
+- detected events
+- extracted dates
+
+Interactive scrolling timeline.
+
+---------------------------------
+
+7. Relationship Graph
+
+Generate a graph connecting:
+
+People
+
+↓
+
+Documents
+
+↓
+
+Topics
+
+↓
+
+Dates
+
+↓
+
+Projects
+
+↓
+
+Tasks
+
+Allow clicking nodes to navigate.
+
+---------------------------------
+
+8. Related Memories
+
+Every memory displays:
+
+Related documents
+
+Related screenshots
+
+Related people
+
+Related events
+
+Found using semantic similarity.
+
+---------------------------------
+
+9. Dashboard
+
+Beautiful dashboard showing:
+
+Total Memories
+
+Recent Uploads
+
+Top Topics
+
+Most Mentioned People
+
+Upcoming Deadlines
+
+Recent Searches
+
+---------------------------------
+
+10. Explainability
+
+Every AI answer includes:
+
+Sources used
+
+Confidence score
+
+Reasoning summary
+
+Clicking a source opens the exact document.
+
+---------------------------------
+
+11. Search Filters
+
+Allow filtering by:
+
+Date
+
+People
+
+Topics
+
+File type
+
+Tags
+
+Projects
+
+---------------------------------
+
+12. UI
+
+Minimalist.
+
+Apple-level polish.
+
+Smooth animations.
+
+Rounded cards.
+
+Dark mode first.
+
+Responsive.
+
+Fast.
+
+No clutter.
+
+---------------------------------
+
+FOLDER STRUCTURE
+
+Separate:
+
+frontend/
+
+backend/
+
+services/
+
+ai/
+
+database/
+
+components/
+
+hooks/
+
+utils/
+
+types/
+
+---------------------------------
+
+IMPORTANT
+
+Build reusable components.
+
+Avoid hardcoding.
+
+Use clean architecture.
+
+Document every module.
+
+Write maintainable TypeScript.
+
+Prepare the project for future features like:
+- Gmail integration
+- Google Drive
+- OneDrive
+- Calendar
+- Slack
+- Discord
+- WhatsApp exports
+- Meeting transcripts
+- Audio processing
+- Video understanding
+
+The code should be production-quality and easy to extend.
