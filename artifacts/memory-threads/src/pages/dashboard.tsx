@@ -65,15 +65,15 @@ export default function Dashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="lg:col-span-2 glass-panel rounded-2xl p-4 md:p-6 overflow-hidden flex flex-col"
+          className="lg:col-span-2 glass-panel rounded-2xl p-4 md:p-6 flex flex-col"
         >
-          <div className="flex items-center gap-2 mb-6 shrink-0">
+          <div className="flex items-center gap-2 mb-4 shrink-0">
             <Brain className="h-5 w-5 text-primary" />
             <h2 className="text-lg font-semibold">Top Topics</h2>
           </div>
-          <div className="h-[250px] md:h-[300px] w-full min-w-0">
+          <div className="flex-1 min-h-[260px] w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={dashboard.topTopics} margin={{ top: 10, right: 10, left: -30, bottom: 20 }}>
+              <BarChart data={dashboard.topTopics} margin={{ top: 10, right: 10, left: -20, bottom: 60 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                 <XAxis 
                   dataKey="topic" 
@@ -201,10 +201,10 @@ function StatCard({ title, value, icon: Icon, color, isPulsing = false, delay = 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay }}
-      className="glass-panel rounded-2xl p-4 md:p-6 relative overflow-hidden group"
+      className="glass-panel rounded-2xl p-4 md:p-6 relative group"
     >
-      <div className="absolute top-0 right-0 p-4 md:p-6 opacity-10 group-hover:opacity-20 transition-opacity">
-        <Icon className={`h-12 w-12 md:h-16 md:w-16 ${color}`} />
+      <div className="absolute top-0 right-0 p-4 md:p-6 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none overflow-hidden rounded-2xl inset-0">
+        <Icon className={`h-12 w-12 md:h-16 md:w-16 ${color} absolute top-3 right-3`} />
       </div>
       <div className="relative z-10">
         <div className="flex items-center gap-2 mb-2 text-muted-foreground">

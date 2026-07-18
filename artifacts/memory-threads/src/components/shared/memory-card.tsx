@@ -34,18 +34,18 @@ export function MemoryCard({ memory, className, onClick, hideConfidence = false 
       
       <div className="p-5 h-full flex flex-col relative z-10">
         <div className="flex justify-between items-start mb-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             <div className="p-2 rounded-lg bg-white/5 border border-white/10 group-hover:bg-primary/10 group-hover:border-primary/20 group-hover:text-primary transition-colors shrink-0">
               <FileTypeIcon type={memory.fileType} className="h-5 w-5" />
             </div>
-            <div className="min-w-0">
-              <h3 className="font-semibold text-foreground truncate max-w-[150px] group-hover:text-primary transition-colors" title={memory.title || memory.originalName}>
+            <div className="min-w-0 flex-1">
+              <h3 className="font-semibold text-foreground truncate group-hover:text-primary transition-colors" title={memory.title || memory.originalName}>
                 {memory.title || memory.originalName}
               </h3>
               <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                <span>{formatBytes(memory.fileSize)}</span>
+                <span className="shrink-0">{formatBytes(memory.fileSize)}</span>
                 <span>•</span>
-                <span>{format(new Date(memory.uploadedAt), 'MMM d, yyyy')}</span>
+                <span className="truncate">{format(new Date(memory.uploadedAt), 'MMM d, yyyy')}</span>
               </div>
             </div>
           </div>
