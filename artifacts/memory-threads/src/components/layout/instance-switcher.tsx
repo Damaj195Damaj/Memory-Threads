@@ -61,6 +61,7 @@ export function InstanceSwitcher() {
           queryClient.invalidateQueries({ queryKey: ['instances'] });
           resetForm();
           toast({ title: 'Workspace updated' });
+          window.location.reload();
         },
         onError: () => toast({ title: 'Failed to update workspace', variant: 'destructive' })
       }
