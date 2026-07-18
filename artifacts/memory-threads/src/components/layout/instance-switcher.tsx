@@ -78,6 +78,7 @@ export function InstanceSwitcher() {
             if (next) setActiveInstanceId(next.id);
           }
           toast({ title: `Workspace ${name} deleted` });
+          window.location.reload();
         },
         onError: () => toast({ title: 'Failed to delete workspace', variant: 'destructive' })
       }
