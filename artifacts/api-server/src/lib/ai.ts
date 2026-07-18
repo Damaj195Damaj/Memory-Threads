@@ -185,10 +185,15 @@ export async function answerQuestion(
     };
   }
 
-  const contextBlocks = memories
+  // Number documents sequentially (1..N) in the prompt so the model's reasoning
+  // and citations refer to Document 1, Document 2, etc. instead of DB memory IDs.
+  const numberedMemories = memories.map((m, idx) => ({ number: idx + 1, memory: m }));
+  const numberToId = new Map(numberedMemories.map(({ number, memory }) => [number, memory.id]));
+
+  const contextBlocks = numberedMemories
     .map(
-      (m) =>
-        `[Document ${m.id}: "${m.title ?? m.originalName}"]
+      ({ number, memory: m }) =>
+        `[Document ${number}: "${m.title ?? m.originalName}"]
 Summary: ${m.summary ?? "N/A"}
 People: ${m.people.join(", ") || "None"}
 Topics: ${m.topics.join(", ") || "None"}
@@ -208,8 +213,8 @@ Return a JSON object (no markdown) with:
 {
   "answer": "<A comprehensive, helpful answer to the question based on the documents>",
   "confidence": <0.0 to 1.0 confidence in the answer>,
-  "reasoning": "<Brief explanation of how you arrived at this answer and which documents were most helpful>",
-  "citedMemoryIds": [<array of document IDs that were used to answer>]
+  "reasoning": "<Brief explanation of how you arrived at this answer and which documents were most helpful. Refer to documents by their number, e.g. 'Document 1'>",
+  "citedDocumentNumbers": [<array of 1-based document numbers that were used to answer>]
 }
 
 If the documents don't contain enough information to answer, say so clearly in the answer.
@@ -225,7 +230,16 @@ Return ONLY the JSON object.`;
 
     const raw = response.choices[0]?.message?.content ?? "{}";
     const cleaned = raw.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-    return JSON.parse(cleaned) as AskResult;
+    const parsed = JSON.parse(cleaned) as AskResult & { citedDocumentNumbers?: number[] };
+
+    // Convert 1-based document numbers back to actual memory IDs
+    if (parsed.citedDocumentNumbers && Array.isArray(parsed.citedDocumentNumbers)) {
+      parsed.citedMemoryIds = parsed.citedDocumentNumbers
+        .map((n) => numberToId.get(n))
+        .filter((id): id is number => id !== undefined);
+    }
+
+    return parsed;
   } catch (err) {
     logger.warn({ err }, "Failed to generate AI answer");
     return {
