@@ -41,7 +41,7 @@ export default function Dashboard() {
       {/* Stats row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         <StatCard 
-          title="Total Memories" 
+          title="Uploaded documents" 
           value={dashboard.totalMemories} 
           icon={DatabaseIcon} 
           color="text-primary" 
