@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { parseInstanceId } from "../lib/instance-id";
 import { eq, desc, sql, and, gte, lte, arrayOverlaps } from "drizzle-orm";
-import { db, memoriesTable, timelineEditsTable } from "@workspace/db";
+import { db, memoriesTable, timelineEditsTable, searchQueriesTable } from "@workspace/db";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -107,6 +107,9 @@ router.delete("/memories", async (req, res): Promise<void> => {
   }
 
   await db.delete(memoriesTable).where(where);
+
+  // Clear all recent searches (table has no instanceId, always global)
+  await db.delete(searchQueriesTable);
 
   res.json({ success: true, deletedCount: rows.length });
 });
