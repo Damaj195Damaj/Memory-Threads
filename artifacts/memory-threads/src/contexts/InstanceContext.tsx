@@ -1,6 +1,45 @@
 import React, { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { useListInstances, useCreateInstance, Instance } from '@workspace/api-client-react';
 
+/** Convert a hex color string to the "H S% L%" format used in CSS custom properties. */
+function hexToHslString(hex: string): string {
+  const clean = hex.replace('#', '');
+  const r = parseInt(clean.slice(0, 2), 16) / 255;
+  const g = parseInt(clean.slice(2, 4), 16) / 255;
+  const b = parseInt(clean.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  let h = 0, s = 0;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+  return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+}
+
+const DEFAULT_COLOR = '#6366f1';
+
+function applyInstanceColor(hex: string | null | undefined) {
+  const color = hex || DEFAULT_COLOR;
+  const hsl = hexToHslString(color);
+  // Slightly brighter variant for foreground accent labels
+  const [h] = hsl.split(' ');
+  const hslBright = `${h} ${hsl.split(' ')[1]} 75%`;
+  const root = document.documentElement;
+  root.style.setProperty('--primary', hsl);
+  root.style.setProperty('--accent', hsl);
+  root.style.setProperty('--ring', hsl);
+  root.style.setProperty('--sidebar-primary', hsl);
+  root.style.setProperty('--sidebar-ring', hsl);
+  root.style.setProperty('--sidebar-accent-foreground', hslBright);
+  root.style.setProperty('--chart-1', hsl);
+}
+
 interface InstanceContextType {
   activeInstanceId: number | null;
   activeInstance: Instance | null;
@@ -63,6 +102,11 @@ export function InstanceProvider({ children }: { children: ReactNode }) {
   }, [instances, isLoadingInstances]);
 
   const activeInstance = instances?.find((i) => i.id === activeInstanceId) ?? null;
+
+  // Keep CSS accent color in sync with the active instance's color
+  useEffect(() => {
+    applyInstanceColor(activeInstance?.color);
+  }, [activeInstance?.color]);
 
   return (
     <InstanceContext.Provider
