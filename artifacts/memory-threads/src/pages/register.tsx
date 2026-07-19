@@ -6,10 +6,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
-// Only enable the Turnstile widget in production — see login.tsx for rationale.
-const TURNSTILE_SITE_KEY = import.meta.env.PROD
-  ? (import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined)
-  : undefined;
+// Cloudflare Turnstile always-visible site key.
+// In development, use the official dummy test key so the widget renders without
+// making real network calls; in production, use the real VITE_TURNSTILE_SITE_KEY.
+// Dummy test keys documented at https://developers.cloudflare.com/turnstile/troubleshooting/testing/
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA';
 
 
 export default function Register() {

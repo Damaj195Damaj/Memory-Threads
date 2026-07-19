@@ -76,6 +76,20 @@ export async function verifyTurnstile(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const secret = process.env.TURNSTILE_SECRET_KEY;
 
+  // Official Cloudflare Turnstile dummy test token. Accepting it in development
+  // lets the widget always render and the auth flow work without real network
+  // calls. The dummy site key always produces this token.
+  const DUMMY_TEST_TOKEN = "XXXX.DUMMY.TOKEN.XXXX";
+
+  if (typeof token !== "string" || !token) {
+    return { ok: false, error: "Bot verification token missing" };
+  }
+
+  if (token === DUMMY_TEST_TOKEN && !isProduction) {
+    logger.debug("Accepting Cloudflare Turnstile dummy test token (development only)");
+    return { ok: true };
+  }
+
   if (!secret) {
     if (isProduction) {
       return {
@@ -87,10 +101,6 @@ export async function verifyTurnstile(
       "TURNSTILE_SECRET_KEY is not set — skipping bot verification (development only)",
     );
     return { ok: true };
-  }
-
-  if (typeof token !== "string" || !token) {
-    return { ok: false, error: "Bot verification token missing" };
   }
 
   try {
