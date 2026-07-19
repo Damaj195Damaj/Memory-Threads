@@ -46,6 +46,7 @@ export function InstanceSwitcher() {
           resetForm();
           setOpen(false);
           toast({ title: 'Workspace created' });
+          window.location.reload();
         },
         onError: () => toast({ title: 'Failed to create workspace', variant: 'destructive' })
       }
