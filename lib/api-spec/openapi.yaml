@@ -340,6 +340,11 @@ paths:
           required: true
           schema:
             type: integer
+        - in: query
+          name: instanceId
+          required: true
+          schema:
+            type: integer
       responses:
         "200":
           description: Memory detail
@@ -360,6 +365,11 @@ paths:
       parameters:
         - in: path
           name: id
+          required: true
+          schema:
+            type: integer
+        - in: query
+          name: instanceId
           required: true
           schema:
             type: integer
@@ -385,6 +395,11 @@ paths:
       parameters:
         - in: path
           name: id
+          required: true
+          schema:
+            type: integer
+        - in: query
+          name: instanceId
           required: true
           schema:
             type: integer

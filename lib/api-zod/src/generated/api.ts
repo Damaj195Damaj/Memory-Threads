@@ -235,6 +235,10 @@ export const GetMemoryParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const GetMemoryQueryParams = zod.object({
+  "instanceId": zod.coerce.number()
+})
+
 export const GetMemoryResponse = zod.object({
   "id": zod.number(),
   "filename": zod.string().optional(),
@@ -267,6 +271,10 @@ export const DeleteMemoryParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const DeleteMemoryQueryParams = zod.object({
+  "instanceId": zod.coerce.number()
+})
+
 export const DeleteMemoryResponse = zod.object({
   "success": zod.boolean()
 })
@@ -277,6 +285,10 @@ export const DeleteMemoryResponse = zod.object({
  */
 export const GetRelatedMemoriesParams = zod.object({
   "id": zod.coerce.number()
+})
+
+export const GetRelatedMemoriesQueryParams = zod.object({
+  "instanceId": zod.coerce.number()
 })
 
 export const GetRelatedMemoriesResponseItem = zod.object({

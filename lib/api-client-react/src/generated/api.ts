@@ -28,12 +28,15 @@ import type {
   DashboardStats,
   DeleteAllMemoriesParams,
   DeleteAllResponse,
+  DeleteMemoryParams,
   DeleteResponse,
   ErrorResponse,
   FilterOptions,
   GetDashboardParams,
   GetFiltersParams,
   GetGraphParams,
+  GetMemoryParams,
+  GetRelatedMemoriesParams,
   GetTimelineParams,
   GraphData,
   HealthStatus,
@@ -976,20 +979,29 @@ export const useUploadMemory = <TError = ErrorType<ErrorResponse>,
       return useMutation(getUploadMemoryMutationOptions(options));
     }
 
-export const getGetMemoryUrl = (id: number,) => {
+export const getGetMemoryUrl = (id: number,
+    params: GetMemoryParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/memories/${id}`
+  return stringifiedParams.length > 0 ? `/api/memories/${id}?${stringifiedParams}` : `/api/memories/${id}`
 }
 
 /**
  * @summary Get a single memory
  */
-export const getMemory = async (id: number, options?: RequestInit): Promise<Memory> => {
+export const getMemory = async (id: number,
+    params: GetMemoryParams, options?: RequestInit): Promise<Memory> => {
 
-  return customFetch<Memory>(getGetMemoryUrl(id),
+  return customFetch<Memory>(getGetMemoryUrl(id,params),
   {
     ...options,
     method: 'GET'
@@ -1002,23 +1014,25 @@ export const getMemory = async (id: number, options?: RequestInit): Promise<Memo
 
 
 
-export const getGetMemoryQueryKey = (id: number,) => {
+export const getGetMemoryQueryKey = (id: number,
+    params?: GetMemoryParams,) => {
     return [
-    `/api/memories/${id}`
+    `/api/memories/${id}`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getGetMemoryQueryOptions = <TData = Awaited<ReturnType<typeof getMemory>>, TError = ErrorType<ErrorResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMemory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetMemoryQueryOptions = <TData = Awaited<ReturnType<typeof getMemory>>, TError = ErrorType<ErrorResponse>>(id: number,
+    params: GetMemoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMemory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetMemoryQueryKey(id);
+  const queryKey =  queryOptions?.queryKey ?? getGetMemoryQueryKey(id,params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMemory>>> = ({ signal }) => getMemory(id, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMemory>>> = ({ signal }) => getMemory(id,params, { signal, ...requestOptions });
 
 
 
@@ -1036,11 +1050,12 @@ export type GetMemoryQueryError = ErrorType<ErrorResponse>
  */
 
 export function useGetMemory<TData = Awaited<ReturnType<typeof getMemory>>, TError = ErrorType<ErrorResponse>>(
- id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMemory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ id: number,
+    params: GetMemoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMemory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetMemoryQueryOptions(id,options)
+  const queryOptions = getGetMemoryQueryOptions(id,params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -1053,20 +1068,29 @@ export function useGetMemory<TData = Awaited<ReturnType<typeof getMemory>>, TErr
 
 
 
-export const getDeleteMemoryUrl = (id: number,) => {
+export const getDeleteMemoryUrl = (id: number,
+    params: DeleteMemoryParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/memories/${id}`
+  return stringifiedParams.length > 0 ? `/api/memories/${id}?${stringifiedParams}` : `/api/memories/${id}`
 }
 
 /**
  * @summary Delete a single memory by id
  */
-export const deleteMemory = async (id: number, options?: RequestInit): Promise<DeleteResponse> => {
+export const deleteMemory = async (id: number,
+    params: DeleteMemoryParams, options?: RequestInit): Promise<DeleteResponse> => {
 
-  return customFetch<DeleteResponse>(getDeleteMemoryUrl(id),
+  return customFetch<DeleteResponse>(getDeleteMemoryUrl(id,params),
   {
     ...options,
     method: 'DELETE'
@@ -1080,8 +1104,8 @@ export const deleteMemory = async (id: number, options?: RequestInit): Promise<D
 
 
 export const getDeleteMemoryMutationOptions = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMemory>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteMemory>>, TError,{id: number}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMemory>>, TError,{id: number;params: DeleteMemoryParams}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteMemory>>, TError,{id: number;params: DeleteMemoryParams}, TContext> => {
 
 const mutationKey = ['deleteMemory'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1093,10 +1117,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteMemory>>, {id: number}> = (props) => {
-          const {id} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteMemory>>, {id: number;params: DeleteMemoryParams}> = (props) => {
+          const {id,params} = props ?? {};
 
-          return  deleteMemory(id,requestOptions)
+          return  deleteMemory(id,params,requestOptions)
         }
 
 
@@ -1114,30 +1138,39 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  * @summary Delete a single memory by id
  */
 export const useDeleteMemory = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMemory>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMemory>>, TError,{id: number;params: DeleteMemoryParams}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof deleteMemory>>,
         TError,
-        {id: number},
+        {id: number;params: DeleteMemoryParams},
         TContext
       > => {
       return useMutation(getDeleteMemoryMutationOptions(options));
     }
 
-export const getGetRelatedMemoriesUrl = (id: number,) => {
+export const getGetRelatedMemoriesUrl = (id: number,
+    params: GetRelatedMemoriesParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/memories/${id}/related`
+  return stringifiedParams.length > 0 ? `/api/memories/${id}/related?${stringifiedParams}` : `/api/memories/${id}/related`
 }
 
 /**
  * @summary Get memories related to a given memory
  */
-export const getRelatedMemories = async (id: number, options?: RequestInit): Promise<Memory[]> => {
+export const getRelatedMemories = async (id: number,
+    params: GetRelatedMemoriesParams, options?: RequestInit): Promise<Memory[]> => {
 
-  return customFetch<Memory[]>(getGetRelatedMemoriesUrl(id),
+  return customFetch<Memory[]>(getGetRelatedMemoriesUrl(id,params),
   {
     ...options,
     method: 'GET'
@@ -1150,23 +1183,25 @@ export const getRelatedMemories = async (id: number, options?: RequestInit): Pro
 
 
 
-export const getGetRelatedMemoriesQueryKey = (id: number,) => {
+export const getGetRelatedMemoriesQueryKey = (id: number,
+    params?: GetRelatedMemoriesParams,) => {
     return [
-    `/api/memories/${id}/related`
+    `/api/memories/${id}/related`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getGetRelatedMemoriesQueryOptions = <TData = Awaited<ReturnType<typeof getRelatedMemories>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRelatedMemories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetRelatedMemoriesQueryOptions = <TData = Awaited<ReturnType<typeof getRelatedMemories>>, TError = ErrorType<unknown>>(id: number,
+    params: GetRelatedMemoriesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRelatedMemories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetRelatedMemoriesQueryKey(id);
+  const queryKey =  queryOptions?.queryKey ?? getGetRelatedMemoriesQueryKey(id,params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRelatedMemories>>> = ({ signal }) => getRelatedMemories(id, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRelatedMemories>>> = ({ signal }) => getRelatedMemories(id,params, { signal, ...requestOptions });
 
 
 
@@ -1184,11 +1219,12 @@ export type GetRelatedMemoriesQueryError = ErrorType<unknown>
  */
 
 export function useGetRelatedMemories<TData = Awaited<ReturnType<typeof getRelatedMemories>>, TError = ErrorType<unknown>>(
- id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRelatedMemories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ id: number,
+    params: GetRelatedMemoriesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRelatedMemories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetRelatedMemoriesQueryOptions(id,options)
+  const queryOptions = getGetRelatedMemoriesQueryOptions(id,params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

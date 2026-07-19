@@ -2,6 +2,7 @@ import React from 'react';
 import { useGetMemory, useGetRelatedMemories, useDeleteMemory } from '@workspace/api-client-react';
 import { useParams, useLocation } from 'wouter';
 import { format } from 'date-fns';
+import { useInstance } from '@/contexts/InstanceContext';
 import { 
   ArrowLeft, Calendar, FileType, HardDrive, Trash2, 
   Users, Building2, MapPin, Target, Hash,
@@ -30,11 +31,21 @@ export default function MemoryDetail() {
   const { id } = useParams();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  
+  const { activeInstanceId } = useInstance();
+
   const memoryId = id ? parseInt(id, 10) : 0;
-  
-  const { data: memory, isLoading, error } = useGetMemory(memoryId);
-  const { data: relatedMemories } = useGetRelatedMemories(memoryId);
+  const canFetch = !!activeInstanceId && memoryId > 0;
+
+  const { data: memory, isLoading, error } = useGetMemory(
+    memoryId,
+    { instanceId: activeInstanceId! },
+    { query: { enabled: canFetch, queryKey: ['memory', memoryId, activeInstanceId] } }
+  );
+  const { data: relatedMemories } = useGetRelatedMemories(
+    memoryId,
+    { instanceId: activeInstanceId! },
+    { query: { enabled: canFetch, queryKey: ['related-memories', memoryId, activeInstanceId] } }
+  );
   const deleteMutation = useDeleteMemory();
 
   if (isLoading) {
@@ -61,15 +72,19 @@ export default function MemoryDetail() {
   }
 
   const handleDelete = () => {
-    deleteMutation.mutate({ id: memoryId }, {
-      onSuccess: () => {
-        toast({ title: "Memory deleted successfully" });
-        setLocation('/memories');
-      },
-      onError: () => {
-        toast({ title: "Failed to delete memory", variant: "destructive" });
+    if (!activeInstanceId) return;
+    deleteMutation.mutate(
+      { id: memoryId, params: { instanceId: activeInstanceId } },
+      {
+        onSuccess: () => {
+          toast({ title: "Memory deleted successfully" });
+          setLocation('/memories');
+        },
+        onError: () => {
+          toast({ title: "Failed to delete memory", variant: "destructive" });
+        }
       }
-    });
+    );
   };
 
   return (

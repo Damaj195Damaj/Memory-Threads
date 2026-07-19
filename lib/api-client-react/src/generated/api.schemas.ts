@@ -323,6 +323,18 @@ export type DeleteAllMemoriesParams = {
 instanceId?: number;
 };
 
+export type GetMemoryParams = {
+instanceId: number;
+};
+
+export type DeleteMemoryParams = {
+instanceId: number;
+};
+
+export type GetRelatedMemoriesParams = {
+instanceId: number;
+};
+
 export type GetTimelineParams = {
 instanceId?: number;
 dateFrom?: string;
