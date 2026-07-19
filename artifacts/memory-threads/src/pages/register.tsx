@@ -6,7 +6,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
-const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
+// Only enable the Turnstile widget in production — see login.tsx for rationale.
+const TURNSTILE_SITE_KEY = import.meta.env.PROD
+  ? (import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined)
+  : undefined;
 
 
 export default function Register() {
@@ -21,6 +24,19 @@ export default function Register() {
   const [turnstileToken, setTurnstileToken] = useState('');
   const turnstileRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
+
+  // Suppress Cloudflare Turnstile unhandled errors in sandboxed/offline environments
+  useEffect(() => {
+    if (!TURNSTILE_SITE_KEY) return;
+    const handler = (e: ErrorEvent) => {
+      if (e.message?.includes('Cloudflare Turnstile') || e.message?.includes('Turnstile')) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    };
+    window.addEventListener('error', handler, true);
+    return () => window.removeEventListener('error', handler, true);
+  }, []);
 
   useEffect(() => {
     if (!TURNSTILE_SITE_KEY || !turnstileRef.current) return;
