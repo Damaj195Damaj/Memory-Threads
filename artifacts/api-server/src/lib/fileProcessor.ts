@@ -9,7 +9,6 @@ export type SupportedFileType =
   | "txt"
   | "md"
   | "csv"
-  | "image"
   | "unknown";
 
 export function detectFileType(filename: string, mimetype: string): SupportedFileType {
@@ -24,11 +23,6 @@ export function detectFileType(filename: string, mimetype: string): SupportedFil
   if (ext === "txt" || mimetype === "text/plain") return "txt";
   if (ext === "md" || ext === "markdown") return "md";
   if (ext === "csv" || mimetype === "text/csv") return "csv";
-  if (
-    mimetype.startsWith("image/") ||
-    ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp"].includes(ext)
-  )
-    return "image";
   return "unknown";
 }
 
@@ -47,8 +41,6 @@ export async function extractText(
         return await extractPlainText(filePath);
       case "csv":
         return await extractCsv(filePath);
-      case "image":
-        return "[Image file - visual content not extracted]";
       default:
         return await extractPlainText(filePath).catch(() => "[Binary file - content not extractable]");
     }

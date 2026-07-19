@@ -189,7 +189,7 @@ export default function Upload() {
                     multiple
                     onChange={handleChange}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                    accept=".pdf,.doc,.docx,.txt,.csv,.md,.png,.jpg,.jpeg,.zip,.7z"
+                    accept=".pdf,.doc,.docx,.txt,.csv,.md,.zip,.7z"
                   />
                   <div className={`w-20 h-20 md:w-24 md:h-24 mx-auto rounded-full flex items-center justify-center transition-colors duration-300 ${isDragging ? 'bg-primary/20 text-primary' : 'bg-white/5 text-muted-foreground'}`}>
                     <UploadCloud className="w-10 h-10 md:w-12 md:h-12" />
@@ -201,7 +201,6 @@ export default function Upload() {
                   <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4 text-xs text-muted-foreground/60 pt-6">
                     <span className="flex items-center gap-1.5"><FileTypeIcon className="w-3.5 h-3.5" /> Docs</span>
                     <span className="flex items-center gap-1.5"><FileTypeIcon className="w-3.5 h-3.5" /> CSV/Data</span>
-                    <span className="flex items-center gap-1.5"><FileTypeIcon className="w-3.5 h-3.5" /> Images</span>
                     <span className="flex items-center gap-1.5"><Archive className="w-3.5 h-3.5" /> ZIP/7z</span>
                   </div>
                 </motion.div>
@@ -224,7 +223,7 @@ export default function Upload() {
                           multiple
                           onChange={handleChange}
                           className="hidden"
-                          accept=".pdf,.doc,.docx,.txt,.csv,.md,.png,.jpg,.jpeg,.zip,.7z"
+                          accept=".pdf,.doc,.docx,.txt,.csv,.md,.zip,.7z"
                         />
                       </label>
                     )}

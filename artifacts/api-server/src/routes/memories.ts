@@ -33,9 +33,9 @@ const upload = multer({
   storage,
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    const allowedExts = [".pdf", ".docx", ".txt", ".md", ".csv", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".zip", ".7z"];
+    const allowedExts = [".pdf", ".docx", ".txt", ".md", ".csv", ".zip", ".7z"];
     const ext = path.extname(file.originalname).toLowerCase();
-    if (allowedExts.includes(ext) || file.mimetype.startsWith("image/") || file.mimetype === "application/pdf" || file.mimetype === "text/plain" || file.mimetype === "text/csv") {
+    if (allowedExts.includes(ext) || file.mimetype === "application/pdf" || file.mimetype === "text/plain" || file.mimetype === "text/csv") {
       cb(null, true);
     } else {
       cb(new Error(`File type not supported: ${file.mimetype}`));
@@ -171,7 +171,7 @@ interface IncomingFile {
   size: number;
 }
 
-const SUPPORTED_EXTS = [".pdf", ".docx", ".txt", ".md", ".csv", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"];
+const SUPPORTED_EXTS = [".pdf", ".docx", ".txt", ".md", ".csv"];
 
 const execFileAsync = promisify(execFile);
 
@@ -277,7 +277,15 @@ async function expandArchives(files: IncomingFile[]): Promise<IncomingFile[]> {
 // POST /memories/upload — accepts one or many files, including .zip/.7z archives
 router.post(
   "/memories/upload",
-  upload.any(),
+  (req, res, next) => {
+    upload.any()(req, res, (err) => {
+      if (err) {
+        res.status(400).json({ error: err.message });
+        return;
+      }
+      next();
+    });
+  },
   async (req, res): Promise<void> => {
     const uploaded = (req.files as IncomingFile[] | undefined) ?? [];
     if (uploaded.length === 0) {
@@ -287,7 +295,7 @@ router.post(
 
     const expanded = await expandArchives(uploaded);
     if (expanded.length === 0) {
-      res.status(400).json({ error: "No supported files found in upload (archives must contain PDF, DOCX, TXT, MD, CSV, or images)" });
+      res.status(400).json({ error: "No supported files found in upload (archives must contain PDF, DOCX, TXT, MD, or CSV)" });
       return;
     }
 
