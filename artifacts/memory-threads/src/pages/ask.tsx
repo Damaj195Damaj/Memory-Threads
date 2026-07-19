@@ -42,18 +42,20 @@ export default function Ask() {
           
           <form onSubmit={handleAsk} className="w-full relative group">
             <div className="absolute inset-0 bg-primary/10 blur-xl rounded-2xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
-            <div className="relative flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-0">
-              <MessageSquare className="hidden sm:block absolute left-6 h-5 w-5 md:h-6 md:w-6 text-muted-foreground group-focus-within:text-primary transition-colors shrink-0" />
+            <div className="relative flex flex-col sm:flex-row sm:items-stretch gap-2 sm:gap-1 h-auto sm:h-14 md:h-16 rounded-2xl bg-black/40 border border-white/10 shadow-2xl focus-within:ring-2 focus-within:ring-primary focus-within:border-primary/50 transition-all backdrop-blur-xl overflow-hidden p-1 sm:p-1 md:p-1">
+              <div className="hidden sm:flex items-center justify-center pl-4 md:pl-6 shrink-0">
+                <MessageSquare className="h-5 w-5 md:h-6 md:w-6 text-muted-foreground group-focus-within:text-primary transition-colors" />
+              </div>
               <Input 
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
                 placeholder="What did we agree on in the Acme contract?"
-                className="w-full h-14 md:h-16 px-4 sm:pl-14 md:pl-16 sm:pr-[145px] md:pr-[175px] rounded-2xl bg-black/40 border-white/10 text-base md:text-lg shadow-2xl focus-visible:ring-primary focus-visible:border-primary/50 transition-all backdrop-blur-xl"
+                className="flex-1 h-12 sm:h-12 md:h-14 px-3 sm:px-3 md:px-4 bg-transparent border-0 shadow-none focus-visible:ring-0 focus-visible:border-0 text-base md:text-lg rounded-xl"
               />
               <button 
                 type="submit"
                 disabled={isAsking || !question.trim()}
-                className="w-full sm:w-auto sm:absolute sm:right-2 md:right-3 px-4 md:px-6 py-3 sm:py-2.5 bg-primary text-primary-foreground text-sm md:text-base font-medium rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shrink-0"
+                className="w-full sm:w-auto h-12 sm:h-12 md:h-14 px-4 md:px-6 bg-primary text-primary-foreground text-sm md:text-base font-medium rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shrink-0"
               >
                 {isAsking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                 Ask AI
