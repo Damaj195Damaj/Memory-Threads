@@ -11,11 +11,13 @@ import {
   Clock,
   Shield,
   Menu,
-  X
+  X,
+  LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { InstanceSwitcher } from './instance-switcher';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -24,6 +26,7 @@ interface AppLayoutProps {
 export default function AppLayout({ children }: AppLayoutProps) {
   const [location] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { user, logout } = useAuth();
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', href: '/' },
@@ -103,6 +106,19 @@ export default function AppLayout({ children }: AppLayoutProps) {
             </div>
           </div>
         </div>
+
+        {user && (
+          <div className="flex items-center justify-between px-1">
+            <span className="text-xs text-muted-foreground truncate max-w-[140px]">{user.email}</span>
+            <button
+              onClick={() => logout()}
+              title="Sign out"
+              className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        )}
       </div>
     </>
   );

@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { parseInstanceId } from "../lib/instance-id";
-import { sql, desc, inArray, arrayOverlaps } from "drizzle-orm";
+import { requireOwnedInstance } from "../lib/ownership";
+import { sql, desc, inArray, arrayOverlaps, eq } from "drizzle-orm";
 import { db, memoriesTable, searchQueriesTable } from "@workspace/db";
 import { SearchMemoriesBody } from "@workspace/api-zod";
 import { rankSearchResults } from "../lib/ai";
@@ -15,23 +15,19 @@ router.post("/search", async (req, res): Promise<void> => {
     return;
   }
 
+  const instanceId = await requireOwnedInstance(req.body?.instanceId, req, res);
+  if (instanceId === null) return;
+
   const { query, filters, limit = 10 } = parsed.data;
-  const instanceParsed = parseInstanceId(req.body.instanceId);
-  if (!instanceParsed.ok) {
-    res.status(400).json({ error: "Invalid instanceId" });
-    return;
-  }
-  const instanceId = instanceParsed.value;
 
-  // Save search query
-  db.insert(searchQueriesTable).values({ query }).catch((err) =>
-    logger.warn({ err }, "Failed to save search query")
-  );
+  // Save search query scoped to this user
+  db.insert(searchQueriesTable)
+    .values({ query, userId: req.session.userId! })
+    .catch((err) => logger.warn({ err }, "Failed to save search query"));
 
-  // Build filter conditions
   const conditions: ReturnType<typeof sql>[] = [
     sql`${memoriesTable.status} = 'ready'`,
-    ...(instanceId ? [sql`${memoriesTable.instanceId} = ${instanceId}`] : []),
+    sql`${memoriesTable.instanceId} = ${instanceId}`,
   ];
 
   if (filters?.fileTypes?.length) {
@@ -44,24 +40,15 @@ router.post("/search", async (req, res): Promise<void> => {
     conditions.push(sql`${arrayOverlaps(memoriesTable.topics, filters.topics)}`);
   }
   if (filters?.dateFrom) {
-    conditions.push(
-      sql`${memoriesTable.uploadedAt} >= ${new Date(filters.dateFrom)}`
-    );
+    conditions.push(sql`${memoriesTable.uploadedAt} >= ${new Date(filters.dateFrom)}`);
   }
   if (filters?.dateTo) {
-    conditions.push(
-      sql`${memoriesTable.uploadedAt} <= ${new Date(filters.dateTo)}`
-    );
+    conditions.push(sql`${memoriesTable.uploadedAt} <= ${new Date(filters.dateTo)}`);
   }
 
-  // OR-based query so any meaningful word can match (semantic recall over precision;
-  // the AI re-ranker filters out irrelevant candidates afterwards)
-  const orQuery = query
-    .split(/\s+/)
-    .filter((w) => w.length > 1)
-    .join(" or ") || query;
+  const orQuery =
+    query.split(/\s+/).filter((w) => w.length > 1).join(" or ") || query;
 
-  // Full-text search candidates
   const ftsCondition = sql`
     to_tsvector('english',
       coalesce(${memoriesTable.title}, '') || ' ' ||
@@ -74,7 +61,6 @@ router.post("/search", async (req, res): Promise<void> => {
     ) @@ websearch_to_tsquery('english', ${orQuery})
   `;
 
-  // Also do a loose ILIKE search as fallback
   const ilikeCondition = sql`
     (${memoriesTable.title} ILIKE ${"%" + query + "%"}
     OR ${memoriesTable.summary} ILIKE ${"%" + query + "%"}
@@ -82,17 +68,18 @@ router.post("/search", async (req, res): Promise<void> => {
     OR array_to_string(${memoriesTable.topics}, ' ') ILIKE ${"%" + query + "%"})
   `;
 
-  // Try FTS first
+  const selectedFields = {
+    id: memoriesTable.id,
+    title: memoriesTable.title,
+    summary: memoriesTable.summary,
+    originalName: memoriesTable.originalName,
+    content: memoriesTable.content,
+    people: memoriesTable.people,
+    topics: memoriesTable.topics,
+  };
+
   let candidates = await db
-    .select({
-      id: memoriesTable.id,
-      title: memoriesTable.title,
-      summary: memoriesTable.summary,
-      originalName: memoriesTable.originalName,
-      content: memoriesTable.content,
-      people: memoriesTable.people,
-      topics: memoriesTable.topics,
-    })
+    .select(selectedFields)
     .from(memoriesTable)
     .where(sql`${ftsCondition} AND ${conditions.reduce((a, b) => sql`${a} AND ${b}`)}`)
     .orderBy(
@@ -109,35 +96,17 @@ router.post("/search", async (req, res): Promise<void> => {
     )
     .limit(15);
 
-  // Fallback to ILIKE if FTS returns nothing
   if (candidates.length === 0) {
     candidates = await db
-      .select({
-        id: memoriesTable.id,
-        title: memoriesTable.title,
-        summary: memoriesTable.summary,
-        originalName: memoriesTable.originalName,
-        content: memoriesTable.content,
-        people: memoriesTable.people,
-        topics: memoriesTable.topics,
-      })
+      .select(selectedFields)
       .from(memoriesTable)
       .where(sql`${ilikeCondition} AND ${conditions.reduce((a, b) => sql`${a} AND ${b}`)}`)
       .limit(15);
   }
 
-  // Last resort: let the AI ranker judge relevance across recent ready memories
   if (candidates.length === 0) {
     candidates = await db
-      .select({
-        id: memoriesTable.id,
-        title: memoriesTable.title,
-        summary: memoriesTable.summary,
-        originalName: memoriesTable.originalName,
-        content: memoriesTable.content,
-        people: memoriesTable.people,
-        topics: memoriesTable.topics,
-      })
+      .select(selectedFields)
       .from(memoriesTable)
       .where(conditions.reduce((a, b) => sql`${a} AND ${b}`))
       .orderBy(desc(memoriesTable.uploadedAt))
@@ -149,10 +118,7 @@ router.post("/search", async (req, res): Promise<void> => {
     return;
   }
 
-  // AI ranking
   const ranked = await rankSearchResults(query, candidates);
-
-  // Fetch full memory records for ranked results
   const memoryIds = ranked.map((r) => r.memoryId);
   const memories = await db
     .select()

@@ -1,3 +1,4 @@
+export * from "./users";
 export * from "./instances";
 export * from "./memories";
 export * from "./searchQueries";

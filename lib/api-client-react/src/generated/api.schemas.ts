@@ -275,6 +275,24 @@ export interface DeleteAllResponse {
   deletedCount: number;
 }
 
+export interface AuthUser {
+  id: number;
+  email: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  /** @minLength 8 */
+  password: string;
+  turnstileToken?: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+  turnstileToken?: string;
+}
+
 export interface ErrorResponse {
   error: string;
 }

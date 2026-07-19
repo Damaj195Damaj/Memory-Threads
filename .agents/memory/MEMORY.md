@@ -1,3 +1,4 @@
+- [Auth, session, gzip](auth-session-gzip.md) — bcryptjs + connect-pg-simple sessions + Turnstile; ownership via requireOwnedInstance(); gzip TXT/MD/CSV at rest
 - [DeepSeek API setup](deepseek-api.md) — Uses OpenAI SDK with custom baseURL; no embeddings support so search uses PostgreSQL FTS + LLM reranking
 - [pdf-parse import & API](pdf-parse-import.md) — v2 is an ESM named-export class; use `createRequire` to avoid bundling errors and `new PDFParse({ data: buffer }).getText()` to extract text
 - [DB schema rebuild rule](db-schema-rebuild.md) — After changing lib/db/src/schema/, always run typecheck:libs before artifact typechecks

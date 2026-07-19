@@ -1,0 +1,103 @@
+# Prompt: Add real auth, session isolation, bot checks, and upload compression to Memory Threads
+
+## Context (do not skip — read this before touching code)
+
+This is the **Memory Threads** repo (pnpm monorepo, Node 24, TypeScript 5.9):
+- Frontend: React + Vite + TailwindCSS + shadcn/ui, in `artifacts/memory-threads/`
+- API: Express 5, in `artifacts/api-server/`
+- DB: PostgreSQL + Drizzle ORM, schema in `lib/db/src/schema/`
+- Uploads: handled by `multer`, processed async/fire-and-forget in
+  `artifacts/api-server/src/lib/processor.ts` and `fileProcessor.ts`, stored in
+  `./uploads/` relative to the API server's working directory
+- Data model: a "Workspaces (instances)" concept (`instances.ts` schema) — the
+  frontend persists the active `instanceId` in `localStorage`
+  (`InstanceContext.tsx`) and the API scopes queries by `instanceId`
+- `SESSION_SECRET` is already declared as an env var but there is currently
+  **no account system** — anyone with the URL has full access to all
+  workspaces/instances and all data in them.
+
+**Root cause of "one login opens all doors":** `instanceId` is a
+client-supplied value trusted by the API for scoping. That is a filter, not
+authorization. Fixing this is the actual point of this task — Turnstile and
+gzip are secondary hardening, not the core fix.
+
+## What to build
+
+### 1. Real account system + server-side session isolation (priority #1)
+
+- Add a `users` table (Drizzle schema) with hashed passwords (bcrypt or
+  argon2 — argon2id preferred), email, created_at.
+- Add a proper session store — either:
+  - Postgres-backed sessions (`connect-pg-simple` or Drizzle-based sessions
+    table), or
+  - Redis-backed sessions if Redis is available in this environment.
+  Do NOT store session state only in a signed cookie with no server-side
+  record — signed cookies alone can't be revoked.
+- Wire `SESSION_SECRET` into `express-session` (or equivalent) properly:
+  `httpOnly`, `secure` in production, `sameSite: 'lax'` minimum, sensible
+  `maxAge`, session ID rotated on login.
+- **Ownership, not just scoping:** add a `userId` (or `ownerId`) foreign key
+  to the `instances` table. Every API route that reads/writes an instance or
+  anything under it (memories, search queries, uploads) MUST verify
+  `instance.userId === req.session.userId` server-side before doing anything.
+  `instanceId` coming from the client (query param, body, or localStorage) is
+  never sufficient on its own — treat it as untrusted input, always join
+  through ownership.
+- Add auth middleware that rejects unauthenticated requests on every
+  `/api/*` route except `/api/auth/*` and the Turnstile-protected endpoints.
+- Add basic account routes: register, login, logout, session check
+  (`/api/auth/me`).
+- Rate-limit login/register endpoints (e.g. `express-rate-limit`) independent
+  of Turnstile, so this doesn't rely on one control alone.
+
+### 2. Cloudflare Turnstile on signup and login
+
+- Render the Turnstile widget on the register and login forms in
+  `artifacts/memory-threads/`.
+- **Server-side verification is mandatory** — call Cloudflare's
+  `siteverify` endpoint from the Express API on submit, using a
+  `TURNSTILE_SECRET_KEY` env var. Reject the request server-side if
+  verification fails or the token is missing. A frontend-only widget with no
+  backend check is decorative and must not ship.
+- Document the two new env vars needed (`TURNSTILE_SITE_KEY` for frontend,
+  `TURNSTILE_SECRET_KEY` for backend) in the README's environment variables
+  table, following the existing table format.
+
+### 3. Gzip compression on file upload
+
+- In the multer upload pipeline (`fileProcessor.ts` / wherever files are
+  written to `./uploads/`), gzip the stored file (Node's built-in `zlib`,
+  `gzip`/`createGzip` stream) before it's persisted to disk.
+- Update whatever reads files back out (the AI analysis pipeline,
+  `pdf-parse`/`mammoth`/`papaparse` extraction in `processor.ts`) to
+  decompress on read — this must stay transparent to the existing
+  extraction code paths, don't break `pdf-parse`'s buffer expectations.
+- Keep the existing 50MB upload limit and file-type restrictions as-is;
+  compression is in addition to those, not a replacement for validation.
+- Note in your summary whether double-compressing already-compressed formats
+  (e.g. some DOCX/PDF internals are already zip-based) meaningfully helps or
+  just adds CPU cost, and pick a sensible default (e.g. skip or use a fast
+  gzip level for those types) rather than blindly gzipping everything at max
+  compression.
+
+## Required process
+
+1. **Before writing code**, give a short written summary (a few sentences)
+   of exactly where the current `instanceId`-trust vulnerability lives in
+   the existing routes — name the specific route handlers in
+   `artifacts/api-server/src/routes/` that currently trust client-supplied
+   `instanceId` without checking ownership. This confirms you've actually
+   located the bug rather than pattern-matching a generic auth setup onto
+   the repo.
+2. Implement in this order: users/sessions schema → auth middleware →
+   ownership checks on existing routes → Turnstile on register/login →
+   upload gzip.
+3. Update `lib/api-spec/openapi.yaml` for any new/changed routes and re-run
+   the Orval codegen step per the repo's existing "Common Gotchas" note.
+4. Update the README's environment variables table and architecture notes
+   to reflect the new auth model — the current "Architecture Notes" section
+   claiming implicit full access needs to be corrected.
+5. End with a short list of what is NOT covered by this change (e.g.
+   password reset flow, email verification, CSRF tokens on state-changing
+   routes if not already handled by `sameSite`) so it's clear what's still
+   open, rather than implying the app is now fully hardened.

@@ -1,7 +1,7 @@
-import fs from "fs/promises";
 import path from "path";
 import { createRequire } from "module";
 import { logger } from "./logger";
+import { readStoredFile } from "./fileStorage";
 
 export type SupportedFileType =
   | "pdf"
@@ -55,7 +55,7 @@ async function extractPdf(filePath: string): Promise<string> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const require = createRequire(import.meta.url);
   const { PDFParse } = require("pdf-parse") as any;
-  const buffer = await fs.readFile(filePath);
+  const buffer = await readStoredFile(filePath);
   const parser = new PDFParse({ data: buffer });
   const data = await parser.getText();
   return (data.text as string).trim();
@@ -63,18 +63,18 @@ async function extractPdf(filePath: string): Promise<string> {
 
 async function extractDocx(filePath: string): Promise<string> {
   const mammoth = await import("mammoth");
-  const buffer = await fs.readFile(filePath);
+  const buffer = await readStoredFile(filePath);
   const result = await mammoth.extractRawText({ buffer });
   return result.value.trim();
 }
 
 async function extractPlainText(filePath: string): Promise<string> {
-  const content = await fs.readFile(filePath, "utf-8");
+  const content = (await readStoredFile(filePath)).toString("utf-8");
   return content.trim();
 }
 
 async function extractCsv(filePath: string): Promise<string> {
-  const content = await fs.readFile(filePath, "utf-8");
+  const content = (await readStoredFile(filePath)).toString("utf-8");
   // Return first 5000 chars of CSV content for analysis
   return content.slice(0, 5000);
 }

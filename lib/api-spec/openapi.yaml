@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication (register, login, logout, session check)
   - name: instances
     description: Instance (workspace) operations
   - name: memories
@@ -38,6 +40,100 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Create a new account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Account created and session started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "400":
+          description: Validation error or bot check failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Sign in to an existing account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "400":
+          description: Validation error or bot check failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: End the current session
+      responses:
+        "200":
+          description: Session destroyed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Return the authenticated user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /instances:
     get:
@@ -997,6 +1093,44 @@ components:
           type: boolean
         deletedCount:
           type: integer
+
+    AuthUser:
+      type: object
+      required:
+        - id
+        - email
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+          minLength: 8
+        turnstileToken:
+          type: string
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+        turnstileToken:
+          type: string
 
     ErrorResponse:
       type: object

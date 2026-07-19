@@ -1,7 +1,6 @@
 import { Router } from "express";
-import { parseInstanceId } from "../lib/instance-id";
+import { requireOwnedInstance } from "../lib/ownership";
 import { sql, desc } from "drizzle-orm";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { db, memoriesTable, searchQueriesTable } from "@workspace/db";
 import { AskMemoryBody } from "@workspace/api-zod";
 import { answerQuestion } from "../lib/ai";
@@ -16,35 +15,25 @@ router.post("/ask", async (req, res): Promise<void> => {
     return;
   }
 
+  const instanceId = await requireOwnedInstance(req.body?.instanceId, req, res);
+  if (instanceId === null) return;
+
   const { question } = parsed.data;
-  const instanceParsed = parseInstanceId(req.body.instanceId);
-  if (!instanceParsed.ok) {
-    res.status(400).json({ error: "Invalid instanceId" });
-    return;
-  }
-  const instanceId = instanceParsed.value;
-  const instanceFilter = instanceId ? sql`AND ${memoriesTable.instanceId} = ${instanceId}` : sql``;
 
-  // OR-based term matching for recall; the LLM decides what's actually relevant
   const orQuery =
-    question
-      .split(/\s+/)
-      .filter((w) => w.length > 2)
-      .join(" or ") || question;
+    question.split(/\s+/).filter((w) => w.length > 2).join(" or ") || question;
 
-  // Save question as search query
-  db.insert(searchQueriesTable).values({ query: question }).catch((err) =>
-    logger.warn({ err }, "Failed to save ask query")
-  );
+  db.insert(searchQueriesTable)
+    .values({ query: question, userId: req.session.userId! })
+    .catch((err) => logger.warn({ err }, "Failed to save ask query"));
 
-  // Find relevant memories using full-text search
   let memories = await db
     .select()
     .from(memoriesTable)
     .where(
       sql`
         ${memoriesTable.status} = 'ready'
-        ${instanceFilter}
+        AND ${memoriesTable.instanceId} = ${instanceId}
         AND to_tsvector('english',
           coalesce(${memoriesTable.title}, '') || ' ' ||
           coalesce(${memoriesTable.summary}, '') || ' ' ||
@@ -69,12 +58,13 @@ router.post("/ask", async (req, res): Promise<void> => {
     )
     .limit(8);
 
-  // If FTS returns nothing, take the most recent ready memories
   if (memories.length === 0) {
     memories = await db
       .select()
       .from(memoriesTable)
-      .where(sql`${memoriesTable.status} = 'ready' ${instanceFilter}`)
+      .where(
+        sql`${memoriesTable.status} = 'ready' AND ${memoriesTable.instanceId} = ${instanceId}`
+      )
       .orderBy(desc(memoriesTable.uploadedAt))
       .limit(5);
   }
@@ -93,7 +83,6 @@ router.post("/ask", async (req, res): Promise<void> => {
     }))
   );
 
-  // Build sources from cited IDs
   const memoryMap = new Map(memories.map((m) => [m.id, m]));
   const sources = result.citedMemoryIds
     .map((id) => {

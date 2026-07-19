@@ -1,37 +1,27 @@
 import { Router } from "express";
-import { parseInstanceId } from "../lib/instance-id";
+import { requireOwnedInstance } from "../lib/ownership";
 import { sql, desc, eq } from "drizzle-orm";
 import { db, memoriesTable, searchQueriesTable } from "@workspace/db";
 
 const router = Router();
 
 router.get("/dashboard", async (req, res): Promise<void> => {
-  const instanceParsed = parseInstanceId(req.query.instanceId);
-  if (!instanceParsed.ok) {
-    res.status(400).json({ error: "Invalid instanceId" });
-    return;
-  }
-  const instanceId = instanceParsed.value;
-  const iFilter = instanceId ? sql`AND ${memoriesTable.instanceId} = ${instanceId}` : sql``;
-  const iWhere = instanceId ? eq(memoriesTable.instanceId, instanceId) : undefined;
+  const instanceId = await requireOwnedInstance(req.query.instanceId, req, res);
+  if (instanceId === null) return;
 
-  // Total memories and status counts
+  const iWhere = eq(memoriesTable.instanceId, instanceId);
+  const iFilter = sql`AND ${memoriesTable.instanceId} = ${instanceId}`;
+
   const statusCounts = await db
-    .select({
-      status: memoriesTable.status,
-      count: sql<number>`count(*)`,
-    })
+    .select({ status: memoriesTable.status, count: sql<number>`count(*)` })
     .from(memoriesTable)
     .where(iWhere)
     .groupBy(memoriesTable.status);
 
   const total = statusCounts.reduce((sum, r) => sum + Number(r.count), 0);
-  const processing = Number(
-    statusCounts.find((r) => r.status === "processing")?.count ?? 0
-  );
+  const processing = Number(statusCounts.find((r) => r.status === "processing")?.count ?? 0);
   const ready = Number(statusCounts.find((r) => r.status === "ready")?.count ?? 0);
 
-  // Recent uploads
   const recentUploads = await db
     .select()
     .from(memoriesTable)
@@ -39,45 +29,34 @@ router.get("/dashboard", async (req, res): Promise<void> => {
     .orderBy(desc(memoriesTable.uploadedAt))
     .limit(6);
 
-  // Top topics (aggregate from all memories)
   const topicsResult = await db
-    .select({
-      topic: sql<string>`unnest(${memoriesTable.topics})`,
-    })
+    .select({ topic: sql<string>`unnest(${memoriesTable.topics})` })
     .from(memoriesTable)
     .where(sql`${memoriesTable.status} = 'ready' ${iFilter}`);
 
   const topicMap = new Map<string, number>();
   for (const r of topicsResult) {
-    if (r.topic) {
-      topicMap.set(r.topic, (topicMap.get(r.topic) ?? 0) + 1);
-    }
+    if (r.topic) topicMap.set(r.topic, (topicMap.get(r.topic) ?? 0) + 1);
   }
   const topTopics = Array.from(topicMap.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, 8)
     .map(([topic, count]) => ({ topic, count }));
 
-  // Most mentioned people
   const peopleResult = await db
-    .select({
-      person: sql<string>`unnest(${memoriesTable.people})`,
-    })
+    .select({ person: sql<string>`unnest(${memoriesTable.people})` })
     .from(memoriesTable)
     .where(sql`${memoriesTable.status} = 'ready' ${iFilter}`);
 
   const personMap = new Map<string, number>();
   for (const r of peopleResult) {
-    if (r.person) {
-      personMap.set(r.person, (personMap.get(r.person) ?? 0) + 1);
-    }
+    if (r.person) personMap.set(r.person, (personMap.get(r.person) ?? 0) + 1);
   }
   const mostMentionedPeople = Array.from(personMap.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, 6)
     .map(([person, count]) => ({ person, count }));
 
-  // Upcoming deadlines (tasks from recent memories)
   const taskMemories = await db
     .select()
     .from(memoriesTable)
@@ -99,10 +78,11 @@ router.get("/dashboard", async (req, res): Promise<void> => {
     )
     .slice(0, 5);
 
-  // Recent searches
+  // Recent searches scoped to the current user
   const searches = await db
     .select({ query: searchQueriesTable.query })
     .from(searchQueriesTable)
+    .where(eq(searchQueriesTable.userId, req.session.userId!))
     .orderBy(desc(searchQueriesTable.createdAt))
     .limit(10);
   const recentSearches = [...new Set(searches.map((s) => s.query))].slice(0, 5);
@@ -144,34 +124,18 @@ router.get("/dashboard", async (req, res): Promise<void> => {
 });
 
 router.get("/filters", async (req, res): Promise<void> => {
-  const instanceParsed = parseInstanceId(req.query.instanceId);
-  if (!instanceParsed.ok) {
-    res.status(400).json({ error: "Invalid instanceId" });
-    return;
-  }
-  const instanceId = instanceParsed.value;
-  const iFilter = instanceId ? sql`AND ${memoriesTable.instanceId} = ${instanceId}` : sql``;
-  const iWhere = instanceId ? eq(memoriesTable.instanceId, instanceId) : undefined;
+  const instanceId = await requireOwnedInstance(req.query.instanceId, req, res);
+  if (instanceId === null) return;
+
+  const iFilter = sql`AND ${memoriesTable.instanceId} = ${instanceId}`;
+  const iWhere = eq(memoriesTable.instanceId, instanceId);
 
   const [peopleResult, topicsResult, tagsResult, fileTypesResult] =
     await Promise.all([
-      db
-        .select({ person: sql<string>`unnest(${memoriesTable.people})` })
-        .from(memoriesTable)
-        .where(sql`${memoriesTable.status} = 'ready' ${iFilter}`),
-      db
-        .select({ topic: sql<string>`unnest(${memoriesTable.topics})` })
-        .from(memoriesTable)
-        .where(sql`${memoriesTable.status} = 'ready' ${iFilter}`),
-      db
-        .select({ tag: sql<string>`unnest(${memoriesTable.tags})` })
-        .from(memoriesTable)
-        .where(sql`${memoriesTable.status} = 'ready' ${iFilter}`),
-      db
-        .select({ fileType: memoriesTable.fileType })
-        .from(memoriesTable)
-        .where(iWhere)
-        .groupBy(memoriesTable.fileType),
+      db.select({ person: sql<string>`unnest(${memoriesTable.people})` }).from(memoriesTable).where(sql`${memoriesTable.status} = 'ready' ${iFilter}`),
+      db.select({ topic: sql<string>`unnest(${memoriesTable.topics})` }).from(memoriesTable).where(sql`${memoriesTable.status} = 'ready' ${iFilter}`),
+      db.select({ tag: sql<string>`unnest(${memoriesTable.tags})` }).from(memoriesTable).where(sql`${memoriesTable.status} = 'ready' ${iFilter}`),
+      db.select({ fileType: memoriesTable.fileType }).from(memoriesTable).where(iWhere).groupBy(memoriesTable.fileType),
     ]);
 
   const unique = <T>(arr: T[]): T[] => [...new Set(arr)];

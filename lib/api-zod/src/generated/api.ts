@@ -18,6 +18,57 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary Create a new account
+ */
+export const registerBodyPasswordMin = 8;
+
+
+
+export const RegisterBody = zod.object({
+  "email": zod.string(),
+  "password": zod.string().min(registerBodyPasswordMin),
+  "turnstileToken": zod.string().optional()
+})
+
+export const RegisterResponse = zod.object({
+  "id": zod.number(),
+  "email": zod.string()
+})
+
+
+/**
+ * @summary Sign in to an existing account
+ */
+export const LoginBody = zod.object({
+  "email": zod.string(),
+  "password": zod.string(),
+  "turnstileToken": zod.string().optional()
+})
+
+export const LoginResponse = zod.object({
+  "id": zod.number(),
+  "email": zod.string()
+})
+
+
+/**
+ * @summary End the current session
+ */
+export const LogoutResponse = zod.object({
+  "success": zod.boolean()
+})
+
+
+/**
+ * @summary Return the authenticated user
+ */
+export const GetMeResponse = zod.object({
+  "id": zod.number(),
+  "email": zod.string()
+})
+
+
+/**
  * @summary List all instances
  */
 export const ListInstancesResponseItem = zod.object({

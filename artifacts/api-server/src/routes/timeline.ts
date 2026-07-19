@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { parseInstanceId } from "../lib/instance-id";
+import { requireOwnedInstance } from "../lib/ownership";
 import { sql, asc, eq } from "drizzle-orm";
 import { db, memoriesTable, timelineEditsTable } from "@workspace/db";
 import {
@@ -31,34 +31,22 @@ router.get("/timeline", async (req, res): Promise<void> => {
     return;
   }
 
-  const { dateFrom, dateTo, limit = 100 } = parsed.data;
-  const instanceParsed = parseInstanceId(req.query.instanceId);
-  if (!instanceParsed.ok) {
-    res.status(400).json({ error: "Invalid instanceId" });
-    return;
-  }
-  const instanceId = instanceParsed.value;
+  const instanceId = await requireOwnedInstance(req.query.instanceId, req, res);
+  if (instanceId === null) return;
 
-  const conditions: ReturnType<typeof sql>[] = [];
+  const { dateFrom, dateTo, limit = 100 } = parsed.data;
+
+  const conditions: ReturnType<typeof sql>[] = [
+    sql`${memoriesTable.instanceId} = ${instanceId}`,
+  ];
   if (dateFrom) conditions.push(sql`${memoriesTable.uploadedAt} >= ${new Date(dateFrom)}`);
   if (dateTo) conditions.push(sql`${memoriesTable.uploadedAt} <= ${new Date(dateTo)}`);
-  if (instanceId) conditions.push(sql`${memoriesTable.instanceId} = ${instanceId}`);
 
-  const whereClause = conditions.length > 0
-    ? conditions.reduce((a, b) => sql`${a} AND ${b}`)
-    : sql`1=1`;
-
-  const editsWhere = instanceId
-    ? sql`${timelineEditsTable.instanceId} = ${instanceId} OR ${timelineEditsTable.instanceId} IS NULL`
-    : sql`1=1`;
+  const whereClause = conditions.reduce((a, b) => sql`${a} AND ${b}`);
+  const editsWhere = sql`${timelineEditsTable.instanceId} = ${instanceId} OR ${timelineEditsTable.instanceId} IS NULL`;
 
   const [memories, edits] = await Promise.all([
-    db
-      .select()
-      .from(memoriesTable)
-      .where(whereClause)
-      .orderBy(asc(memoriesTable.uploadedAt))
-      .limit(limit),
+    db.select().from(memoriesTable).where(whereClause).orderBy(asc(memoriesTable.uploadedAt)).limit(limit),
     db.select().from(timelineEditsTable).where(editsWhere),
   ]);
 
@@ -124,7 +112,6 @@ router.get("/timeline", async (req, res): Promise<void> => {
     }
   }
 
-  // Custom user-created events
   for (const e of edits) {
     if (!e.isCustom || e.hidden || !e.date || !e.title) continue;
     events.push({
@@ -144,20 +131,17 @@ router.get("/timeline", async (req, res): Promise<void> => {
   res.json(events.slice(0, limit));
 });
 
-// POST /timeline/events — create custom event
 router.post("/timeline/events", async (req, res): Promise<void> => {
   const parsed = CreateTimelineEventBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+
+  const instanceId = await requireOwnedInstance(req.body?.instanceId, req, res);
+  if (instanceId === null) return;
+
   const { date, title, description, type, memoryId } = parsed.data;
-  const instanceParsed = parseInstanceId(req.body.instanceId);
-  if (!instanceParsed.ok) {
-    res.status(400).json({ error: "Invalid instanceId" });
-    return;
-  }
-  const instanceId = instanceParsed.value;
 
   const [row] = await db
     .insert(timelineEditsTable)
@@ -190,7 +174,6 @@ router.post("/timeline/events", async (req, res): Promise<void> => {
   });
 });
 
-// PUT /timeline/events/:id — edit custom event or override auto event
 router.put("/timeline/events/:id", async (req, res): Promise<void> => {
   const eventId = String(req.params.id);
   const parsed = UpdateTimelineEventBody.safeParse(req.body);
@@ -198,13 +181,15 @@ router.put("/timeline/events/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+
+  const instanceId = await requireOwnedInstance(
+    req.body?.instanceId ?? req.query.instanceId,
+    req,
+    res,
+  );
+  if (instanceId === null) return;
+
   const { date, title, description, type } = parsed.data;
-  const instanceParsed = parseInstanceId(req.body.instanceId ?? req.query.instanceId);
-  if (!instanceParsed.ok) {
-    res.status(400).json({ error: "Invalid instanceId" });
-    return;
-  }
-  const instanceId = instanceParsed.value;
 
   if (eventId.startsWith("custom-")) {
     const rowId = parseInt(eventId.slice("custom-".length), 10);
@@ -221,9 +206,7 @@ router.put("/timeline/events/:id", async (req, res): Promise<void> => {
         ...(date !== undefined ? { date: new Date(date) } : {}),
       })
       .where(
-        instanceId
-          ? sql`${timelineEditsTable.id} = ${rowId} AND (${timelineEditsTable.instanceId} = ${instanceId} OR ${timelineEditsTable.instanceId} IS NULL)`
-          : eq(timelineEditsTable.id, rowId)
+        sql`${timelineEditsTable.id} = ${rowId} AND (${timelineEditsTable.instanceId} = ${instanceId} OR ${timelineEditsTable.instanceId} IS NULL)`
       )
       .returning();
     if (!row) {
@@ -244,7 +227,6 @@ router.put("/timeline/events/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  // Auto-generated event: upsert an override row keyed by eventKey
   const [existing] = await db
     .select()
     .from(timelineEditsTable)
@@ -258,15 +240,8 @@ router.put("/timeline/events/:id", async (req, res): Promise<void> => {
   };
 
   const [row] = existing
-    ? await db
-        .update(timelineEditsTable)
-        .set(values)
-        .where(eq(timelineEditsTable.id, existing.id))
-        .returning()
-    : await db
-        .insert(timelineEditsTable)
-        .values({ eventKey: eventId, isCustom: false, instanceId, ...values })
-        .returning();
+    ? await db.update(timelineEditsTable).set(values).where(eq(timelineEditsTable.id, existing.id)).returning()
+    : await db.insert(timelineEditsTable).values({ eventKey: eventId, isCustom: false, instanceId, ...values }).returning();
 
   res.json({
     id: eventId,
@@ -281,15 +256,11 @@ router.put("/timeline/events/:id", async (req, res): Promise<void> => {
   });
 });
 
-// DELETE /timeline/events/:id — delete custom or hide auto event
 router.delete("/timeline/events/:id", async (req, res): Promise<void> => {
   const eventId = String(req.params.id);
-  const instanceParsed = parseInstanceId(req.query.instanceId);
-  if (!instanceParsed.ok) {
-    res.status(400).json({ error: "Invalid instanceId" });
-    return;
-  }
-  const instanceId = instanceParsed.value;
+
+  const instanceId = await requireOwnedInstance(req.query.instanceId, req, res);
+  if (instanceId === null) return;
 
   if (eventId.startsWith("custom-")) {
     const rowId = parseInt(eventId.slice("custom-".length), 10);
@@ -300,9 +271,7 @@ router.delete("/timeline/events/:id", async (req, res): Promise<void> => {
     await db
       .delete(timelineEditsTable)
       .where(
-        instanceId
-          ? sql`${timelineEditsTable.id} = ${rowId} AND (${timelineEditsTable.instanceId} = ${instanceId} OR ${timelineEditsTable.instanceId} IS NULL)`
-          : eq(timelineEditsTable.id, rowId)
+        sql`${timelineEditsTable.id} = ${rowId} AND (${timelineEditsTable.instanceId} = ${instanceId} OR ${timelineEditsTable.instanceId} IS NULL)`
       );
     res.json({ success: true });
     return;
@@ -314,14 +283,9 @@ router.delete("/timeline/events/:id", async (req, res): Promise<void> => {
     .where(eq(timelineEditsTable.eventKey, eventId));
 
   if (existing) {
-    await db
-      .update(timelineEditsTable)
-      .set({ hidden: true })
-      .where(eq(timelineEditsTable.id, existing.id));
+    await db.update(timelineEditsTable).set({ hidden: true }).where(eq(timelineEditsTable.id, existing.id));
   } else {
-    await db
-      .insert(timelineEditsTable)
-      .values({ eventKey: eventId, hidden: true, isCustom: false, instanceId });
+    await db.insert(timelineEditsTable).values({ eventKey: eventId, hidden: true, isCustom: false, instanceId });
   }
 
   res.json({ success: true });

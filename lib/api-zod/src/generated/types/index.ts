@@ -8,6 +8,7 @@
 
 export * from './askInput';
 export * from './askResponse';
+export * from './authUser';
 export * from './createInstanceRequest';
 export * from './createTimelineEventRequest';
 export * from './createTimelineEventRequestType';
@@ -29,6 +30,7 @@ export * from './healthStatus';
 export * from './instance';
 export * from './listMemoriesParams';
 export * from './listMemoriesStatus';
+export * from './loginRequest';
 export * from './memory';
 export * from './memoryFileUpload';
 export * from './memoryListResponse';
@@ -36,6 +38,7 @@ export * from './memorySource';
 export * from './memoryStatus';
 export * from './memoryUploadResponse';
 export * from './personCount';
+export * from './registerRequest';
 export * from './searchFilters';
 export * from './searchInput';
 export * from './searchResponse';

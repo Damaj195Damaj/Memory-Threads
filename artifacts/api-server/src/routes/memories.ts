@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { requireOwnedInstance } from "../lib/ownership";
 import { parseInstanceId } from "../lib/instance-id";
 import { eq, desc, sql, and, gte, lte, arrayOverlaps } from "drizzle-orm";
 import { db, memoriesTable, timelineEditsTable, searchQueriesTable } from "@workspace/db";
@@ -15,6 +16,7 @@ import {
 } from "@workspace/api-zod";
 import { processMemory } from "../lib/processor";
 import { logger } from "../lib/logger";
+import { compressStoredFile } from "../lib/fileStorage";
 
 const UPLOADS_DIR = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(UPLOADS_DIR)) {
@@ -77,39 +79,31 @@ function formatMemory(m: typeof memoriesTable.$inferSelect) {
 
 const router = Router();
 
-// DELETE /memories — delete all memories (optionally filtered by instance)
+// DELETE /memories — delete all memories for a verified-owned instance
 router.delete("/memories", async (req, res): Promise<void> => {
-  const instanceParsed = parseInstanceId(req.query.instanceId);
-  if (!instanceParsed.ok) {
-    res.status(400).json({ error: "Invalid instanceId" });
-    return;
-  }
-  const instanceId = instanceParsed.value;
-
-  const where = instanceId ? eq(memoriesTable.instanceId, instanceId) : undefined;
+  const instanceId = await requireOwnedInstance(req.query.instanceId, req, res);
+  if (instanceId === null) return;
 
   const rows = await db
     .select({ filePath: memoriesTable.filePath })
     .from(memoriesTable)
-    .where(where);
+    .where(eq(memoriesTable.instanceId, instanceId));
 
   for (const r of rows) {
     try { fs.unlinkSync(r.filePath); } catch {}
+    try { if (!r.filePath.endsWith(".gz")) fs.unlinkSync(r.filePath + ".gz"); } catch {}
   }
 
-  // Delete related timeline edits for this instance
-  if (instanceId) {
-    await db
-      .delete(timelineEditsTable)
-      .where(eq(timelineEditsTable.instanceId, instanceId));
-  } else {
-    await db.delete(timelineEditsTable);
-  }
+  await db
+    .delete(timelineEditsTable)
+    .where(eq(timelineEditsTable.instanceId, instanceId));
 
-  await db.delete(memoriesTable).where(where);
+  await db.delete(memoriesTable).where(eq(memoriesTable.instanceId, instanceId));
 
-  // Clear all recent searches (table has no instanceId, always global)
-  await db.delete(searchQueriesTable);
+  // Clear search history for this user
+  await db
+    .delete(searchQueriesTable)
+    .where(eq(searchQueriesTable.userId, req.session.userId!));
 
   res.json({ success: true, deletedCount: rows.length });
 });
@@ -121,19 +115,18 @@ router.get("/memories", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { status, fileType, people, topics, tags, dateFrom, dateTo, q, limit = 50, offset = 0 } = parsed.data;
-  const instanceParsed = parseInstanceId(req.query.instanceId);
-  if (!instanceParsed.ok) {
-    res.status(400).json({ error: "Invalid instanceId" });
-    return;
-  }
-  const instanceId = instanceParsed.value;
 
-  const conditions: ReturnType<typeof eq>[] = [];
+  const instanceId = await requireOwnedInstance(req.query.instanceId, req, res);
+  if (instanceId === null) return;
+
+  const { status, fileType, people, topics, tags, dateFrom, dateTo, q, limit = 50, offset = 0 } = parsed.data;
+
+  const conditions: ReturnType<typeof eq>[] = [
+    eq(memoriesTable.instanceId, instanceId),
+  ];
 
   if (status) conditions.push(eq(memoriesTable.status, status));
   if (fileType) conditions.push(eq(memoriesTable.fileType, fileType));
-  if (instanceId) conditions.push(eq(memoriesTable.instanceId, instanceId));
 
   const extraConditions = [
     ...(people ? [sql`${memoriesTable.people} @> ARRAY[${people}::text]`] : []),
@@ -274,7 +267,7 @@ async function expandArchives(files: IncomingFile[]): Promise<IncomingFile[]> {
   return out;
 }
 
-// POST /memories/upload — accepts one or many files, including .zip/.7z archives
+// POST /memories/upload
 router.post(
   "/memories/upload",
   (req, res, next) => {
@@ -287,6 +280,10 @@ router.post(
     });
   },
   async (req, res): Promise<void> => {
+    // Ownership check before any file processing
+    const instanceId = await requireOwnedInstance(req.body?.instanceId, req, res);
+    if (instanceId === null) return;
+
     const uploaded = (req.files as IncomingFile[] | undefined) ?? [];
     if (uploaded.length === 0) {
       res.status(400).json({ error: "No file provided" });
@@ -304,10 +301,11 @@ router.post(
       const ext = path.extname(file.originalname).toLowerCase().slice(1);
       const fileType = ext || file.mimetype.split("/")[1] || "unknown";
 
-      const uploadInstanceParsed = parseInstanceId(req.body?.instanceId);
-      const uploadInstanceId = uploadInstanceParsed.ok
-        ? uploadInstanceParsed.value
-        : null;
+      // Compress text-based formats at rest; skip already-compressed containers
+      const { filePath: storedPath, storedSize } = await compressStoredFile(
+        file.path,
+        file.originalname,
+      );
 
       const [memory] = await db
         .insert(memoriesTable)
@@ -315,16 +313,16 @@ router.post(
           filename: file.filename,
           originalName: file.originalname,
           fileType,
-          fileSize: file.size,
-          filePath: file.path,
+          fileSize: storedSize,
+          filePath: storedPath,
           status: "pending",
-          instanceId: uploadInstanceId || null,
+          instanceId,
         })
         .returning();
 
       if (!memory) continue;
 
-      processMemory(memory.id, file.path, file.filename, file.originalname, file.mimetype).catch(
+      processMemory(memory.id, storedPath, file.filename, file.originalname, file.mimetype).catch(
         (err) => logger.error({ err, memoryId: memory.id }, "Background processing failed")
       );
       created.push(memory);
@@ -344,20 +342,14 @@ router.get("/memories/:id", async (req, res): Promise<void> => {
     return;
   }
   const { id } = paramsResult.data;
-  const instanceParsed = parseInstanceId(req.query.instanceId);
-  if (!instanceParsed.ok) {
-    res.status(400).json({ error: "Invalid instanceId" });
-    return;
-  }
+
+  const instanceId = await requireOwnedInstance(req.query.instanceId, req, res);
+  if (instanceId === null) return;
 
   const [memory] = await db
     .select()
     .from(memoriesTable)
-    .where(
-      instanceParsed.value
-        ? and(eq(memoriesTable.id, id), eq(memoriesTable.instanceId, instanceParsed.value))
-        : eq(memoriesTable.id, id)
-    );
+    .where(and(eq(memoriesTable.id, id), eq(memoriesTable.instanceId, instanceId)));
 
   if (!memory) {
     res.status(404).json({ error: "Memory not found" });
@@ -377,19 +369,13 @@ router.delete("/memories/:id", async (req, res): Promise<void> => {
     return;
   }
   const { id } = paramsResult.data;
-  const instanceParsed = parseInstanceId(req.query.instanceId);
-  if (!instanceParsed.ok) {
-    res.status(400).json({ error: "Invalid instanceId" });
-    return;
-  }
+
+  const instanceId = await requireOwnedInstance(req.query.instanceId, req, res);
+  if (instanceId === null) return;
 
   const [deleted] = await db
     .delete(memoriesTable)
-    .where(
-      instanceParsed.value
-        ? and(eq(memoriesTable.id, id), eq(memoriesTable.instanceId, instanceParsed.value))
-        : eq(memoriesTable.id, id)
-    )
+    .where(and(eq(memoriesTable.id, id), eq(memoriesTable.instanceId, instanceId)))
     .returning();
 
   if (!deleted) {
@@ -397,11 +383,11 @@ router.delete("/memories/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  // Clean up file from disk
   if (deleted.filePath) {
-    fs.unlink(deleted.filePath, (err) => {
-      if (err) logger.warn({ err, path: deleted.filePath }, "Failed to delete file");
-    });
+    fs.unlink(deleted.filePath, () => {});
+    if (!deleted.filePath.endsWith(".gz")) {
+      fs.unlink(deleted.filePath + ".gz", () => {});
+    }
   }
 
   res.json({ success: true });
@@ -417,34 +403,27 @@ router.get("/memories/:id/related", async (req, res): Promise<void> => {
     return;
   }
   const { id } = paramsResult.data;
-  const instanceParsed = parseInstanceId(req.query.instanceId);
-  if (!instanceParsed.ok) {
-    res.status(400).json({ error: "Invalid instanceId" });
-    return;
-  }
+
+  const instanceId = await requireOwnedInstance(req.query.instanceId, req, res);
+  if (instanceId === null) return;
 
   const [source] = await db
     .select()
     .from(memoriesTable)
-    .where(
-      instanceParsed.value
-        ? and(eq(memoriesTable.id, id), eq(memoriesTable.instanceId, instanceParsed.value))
-        : eq(memoriesTable.id, id)
-    );
+    .where(and(eq(memoriesTable.id, id), eq(memoriesTable.instanceId, instanceId)));
 
   if (!source) {
     res.status(404).json({ error: "Memory not found" });
     return;
   }
 
-  // Find memories that share topics, people, or tags
   const allTopics = [...source.topics, ...source.people, ...source.tags].slice(0, 10);
 
   if (allTopics.length === 0) {
     const recent = await db
       .select()
       .from(memoriesTable)
-      .where(sql`${memoriesTable.id} != ${id} AND ${memoriesTable.status} = 'ready'`)
+      .where(sql`${memoriesTable.id} != ${id} AND ${memoriesTable.status} = 'ready' AND ${memoriesTable.instanceId} = ${instanceId}`)
       .orderBy(desc(memoriesTable.uploadedAt))
       .limit(5);
     res.json(recent.map(formatMemory));
@@ -457,16 +436,16 @@ router.get("/memories/:id/related", async (req, res): Promise<void> => {
     .where(
       sql`${memoriesTable.id} != ${id}
         AND ${memoriesTable.status} = 'ready'
+        AND ${memoriesTable.instanceId} = ${instanceId}
         AND (${arrayOverlaps(memoriesTable.topics, allTopics)} OR ${arrayOverlaps(memoriesTable.people, allTopics)})`
     )
     .limit(5);
 
-  // Fallback if the dynamic SQL approach fails
   if (related.length === 0) {
     const fallback = await db
       .select()
       .from(memoriesTable)
-      .where(sql`${memoriesTable.id} != ${id} AND ${memoriesTable.status} = 'ready'`)
+      .where(sql`${memoriesTable.id} != ${id} AND ${memoriesTable.status} = 'ready' AND ${memoriesTable.instanceId} = ${instanceId}`)
       .orderBy(desc(memoriesTable.uploadedAt))
       .limit(5);
     res.json(fallback.map(formatMemory));
