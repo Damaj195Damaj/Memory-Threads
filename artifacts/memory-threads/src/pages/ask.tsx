@@ -48,7 +48,7 @@ export default function Ask() {
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
                 placeholder="What did we agree on in the Acme contract?"
-                className="w-full h-14 md:h-16 px-4 sm:pl-14 md:pl-16 sm:pr-[120px] rounded-2xl bg-black/40 border-white/10 text-base md:text-lg shadow-2xl focus-visible:ring-primary focus-visible:border-primary/50 transition-all backdrop-blur-xl"
+                className="w-full h-14 md:h-16 px-4 sm:pl-14 md:pl-16 sm:pr-[145px] md:pr-[175px] rounded-2xl bg-black/40 border-white/10 text-base md:text-lg shadow-2xl focus-visible:ring-primary focus-visible:border-primary/50 transition-all backdrop-blur-xl"
               />
               <button 
                 type="submit"

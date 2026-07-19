@@ -1,0 +1,30 @@
+DUE DILIGENCE WORKING NOTES — Renee Castillo
+Silverline Robotics / Vantage Systems acquisition — personal notes, not the official file
+
+---
+
+April 6, 2026
+First day on-site at Vantage's office for document review. Aaron Whitfield is running this from our side; Vantage's CFO Derek Voss is our main point of contact for financials. Data room access opened this morning — over 400 documents to get through before the Friday go/no-go call with the partners.
+
+Funny thing walking to the conference room: passed a locked supply closet in the finance hallway with a hand-written sticky note on it that just said "Meridian IP - do not disclose - see D.V." Asked the office manager what that was about and she laughed and said "oh, ask Derek, it's old news," which felt like a non-answer but I didn't push it. Probably just old marketing materials or something they're embarrassed about. Noted it in case it comes up again.
+
+April 7, 2026
+Spent the day on the financial statements. Revenue looks solid, healthy margins on the industrial-sensor product line. Derek walked us through the cap table without issue. No red flags in the financials workstream so far.
+
+April 8, 2026
+IP workstream started today. Vantage's disclosed patent portfolio looks clean — 14 issued patents, no pending litigation listed on the disclosure schedule. Aaron specifically asked Derek in this morning's call whether there was any IP litigation, active or threatened, not yet reflected in the disclosure schedule. Derek said no.
+
+April 9, 2026
+Long day cross-referencing employment agreements. Nothing unusual. I did mention the "Meridian" sticky note to Aaron over coffee, mostly as an aside — he said unless it shows up in the data room or gets flagged by opposing counsel, it's not worth a special request that might slow down the timeline. Fair enough, moving on.
+
+April 10, 2026
+Financial workstream substantially complete. Aaron thinks we're on track for the Friday call. I keep thinking about that closet.
+
+April 13, 2026
+Got a call this afternoon from opposing counsel's office (representing Vantage) with an update: a demand letter arrived at Vantage from a company called Meridian Dynamics, alleging patent infringement on the industrial-sensor line — the exact product line we spent all of April 7 confirming looked clean. Derek Voss apparently received an earlier version of this demand back in January and did not disclose it during any of our IP diligence calls, including the direct question Aaron asked him on April 8.
+
+April 14, 2026
+Emergency call with the partners this morning. Aaron is livid — not about the underlying patent dispute itself, which happens, but about the direct misrepresentation on April 8. The Friday go/no-go call is now a "what does this do to valuation and deal structure" call instead. I finally admitted to Aaron that the sticky note I mentioned on the 9th was dated back in January, same month as the earlier demand letter Derek apparently sat on. Neither of us put it together in time, but in hindsight it was sitting right there in week one.
+
+April 15, 2026
+Legal memo going out today summarizing the exposure and recommending a purchase-price holdback and revised reps and warranties before the deal can move forward. This is going to push the timeline by at least three weeks.
