@@ -31,12 +31,12 @@ export default function MemoryDetail() {
   const { id } = useParams();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { activeInstanceId } = useInstance();
+  const { activeInstanceId, isLoading: isLoadingInstance } = useInstance();
 
   const memoryId = id ? parseInt(id, 10) : 0;
   const canFetch = !!activeInstanceId && memoryId > 0;
 
-  const { data: memory, isLoading, error } = useGetMemory(
+  const { data: memory, isLoading: isLoadingMemory, error } = useGetMemory(
     memoryId,
     { instanceId: activeInstanceId! },
     { query: { enabled: canFetch, queryKey: ['memory', memoryId, activeInstanceId] } }
@@ -48,7 +48,7 @@ export default function MemoryDetail() {
   );
   const deleteMutation = useDeleteMemory();
 
-  if (isLoading) {
+  if (isLoadingInstance || !canFetch || isLoadingMemory) {
     return (
       <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6 md:space-y-8 animate-pulse">
         <div className="h-8 w-24 bg-white/5 rounded-md" />
