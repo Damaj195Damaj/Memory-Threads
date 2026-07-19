@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
+import { createRequire } from "module";
 import { logger } from "./logger";
 
 export type SupportedFileType =
@@ -58,12 +59,13 @@ export async function extractText(
 }
 
 async function extractPdf(filePath: string): Promise<string> {
-  // pdf-parse uses CommonJS default export
+  // pdf-parse v2 exports PDFParse as a named class; load it at runtime to avoid bundling issues.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pdfParseModule = await import("pdf-parse") as any;
-  const pdfParse = pdfParseModule.default ?? pdfParseModule;
+  const require = createRequire(import.meta.url);
+  const { PDFParse } = require("pdf-parse") as any;
   const buffer = await fs.readFile(filePath);
-  const data = await pdfParse(buffer);
+  const parser = new PDFParse({ data: buffer });
+  const data = await parser.getText();
   return (data.text as string).trim();
 }
 

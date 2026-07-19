@@ -1,5 +1,5 @@
 - [DeepSeek API setup](deepseek-api.md) — Uses OpenAI SDK with custom baseURL; no embeddings support so search uses PostgreSQL FTS + LLM reranking
-- [pdf-parse import quirk](pdf-parse-import.md) — CJS module, must use dynamic import with default fallback pattern
+- [pdf-parse import & API](pdf-parse-import.md) — v2 is an ESM named-export class; use `createRequire` to avoid bundling errors and `new PDFParse({ data: buffer }).getText()` to extract text
 - [DB schema rebuild rule](db-schema-rebuild.md) — After changing lib/db/src/schema/, always run typecheck:libs before artifact typechecks
 - [File upload flow](file-upload-flow.md) — multer handles upload, processMemory fires async (no await), client polls for status
 - [React context + HMR](react-context-hmr.md) — context hooks return fallback not throw; ref-guard auto-create effects; stale HMR graphs need dev-server restart

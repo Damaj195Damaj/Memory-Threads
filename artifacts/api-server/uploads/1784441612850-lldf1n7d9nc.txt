@@ -1,0 +1,32 @@
+INCIDENT LOG — Daniel Cho, Site Reliability Engineer
+Northbridge Analytics — personal working notes, not the official record
+(see postmortem_report.docx for that)
+
+---
+
+June 14, 2026 — 02:47
+Paged out of a dead sleep. Sentinel flagged an anomalous login on the Atlas prod database at 02:14 — device fingerprint we've never seen, source IP geolocating to somewhere in the Baltics, using a valid SSO session for account "o.bright@northbridge-contractors.com". That's Owen's contractor account. Owen's on the data-pipeline team, works East Coast hours, should not be awake right now let alone querying Atlas from overseas. Killed the session, rotated the service creds touching that account, opened a ticket, went back to bed. Did not sleep.
+
+June 14, 2026 — 10:30
+Stand-up turned into an incident call. Priya Osei is incident commander. Confirmed: the session pulled a partial export of the customer accounts table before we killed it — looks like roughly 40 minutes of read access before Sentinel's second alert triggered. Not clear yet what was actually exfiltrated versus just queried. Lena Fitch (interim CISO, since Raj left in March) looped in Ashgrove Cyber for outside forensics — their guy Marcus Bellamy is flying out tomorrow.
+
+Random thing from the team chat this morning, probably nothing: Owen mentioned last week that his bag got swiped at Cafe Luna on the corner, said he was just glad it was "only the laptop" and not his wallet too. Everyone laughed it off at the time. Filing that away, not sure why it's bugging me.
+
+June 15, 2026
+Marcus Bellamy on site. He's methodical, doesn't say much. Spent the day pulling VPN gateway logs and SSO audit trails. Confirmed the session used a legitimate, unrevoked SSO refresh token — not a brute-force, not a phished password. Whoever did this had a token that should have died when Owen's laptop was reported lost, except IT has no record of Owen ever reporting a lost or stolen device. That's the first real snag: if the laptop was gone since last week, why didn't the token expire and why wasn't it reported?
+
+June 16, 2026
+Bad day. Pulled Owen into a call with Priya and HR present. He confirmed the Cafe Luna theft happened on June 10 — his bag, laptop inside, gone in under a minute while he stepped away to get sugar. He said he assumed IT would "catch it automatically" and never filed a ticket because he didn't want it dinging his contract review. So: four days between theft and our first alert, and the token stayed live that whole time because nobody knew to kill it.
+
+Marcus confirmed the geolocation and device fingerprint from June 14 are consistent with the token being used from a device that isn't Owen's known laptop — i.e., someone else has it and is using the cached session.
+
+June 17, 2026
+Full scope review. Export appears limited to the customer accounts table — names, emails, account tiers. No evidence (yet) that it reached billing/payment data, which sits in a separate service with its own auth boundary that the token didn't have access to. Small mercy. Priya wants this confirmed twice before it goes in the report.
+
+Also spent an hour today just staring at the org chart trying to figure out why a contractor's laptop had standing SSO access to Atlas at all instead of a scoped, time-boxed credential. That's going in the report as a root-cause finding whether Owen's laptop had ever been stolen or not.
+
+June 18, 2026
+Drafted remediation list with Priya: mandatory device-loss reporting SLA (24 hours), scoped contractor tokens with short TTLs, and MFA step-up for any Atlas query touching the accounts table specifically. Lena wants this in front of the board Friday. Compliance is drafting the regulator notification separately — apparently we're inside the window where Continental Data Protection Authority needs to hear from us regardless of whether payment data was touched.
+
+June 19, 2026
+Report finalized and sent up. Token revoked (was already dead after June 14 but we killed it again at the account level to be sure), Owen's contractor access fully offboarded pending review, Cafe Luna incident logged as the confirmed root cause in the postmortem. Marcus is heading back to Ashgrove tomorrow. Five days is faster than I expected for this to close out, but I don't think anyone's calling it a good week.
