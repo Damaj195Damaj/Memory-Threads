@@ -10,5 +10,4 @@ export interface RegisterRequest {
   email: string;
   /** @minLength 8 */
   password: string;
-  turnstileToken?: string;
 }

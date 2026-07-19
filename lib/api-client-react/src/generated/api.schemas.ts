@@ -284,13 +284,11 @@ export interface RegisterRequest {
   email: string;
   /** @minLength 8 */
   password: string;
-  turnstileToken?: string;
 }
 
 export interface LoginRequest {
   email: string;
   password: string;
-  turnstileToken?: string;
 }
 
 export interface ErrorResponse {

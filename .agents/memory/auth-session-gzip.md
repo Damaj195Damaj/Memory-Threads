@@ -1,6 +1,6 @@
 ---
 name: Auth, session isolation, and gzip storage
-description: Implementation decisions for the auth/session system, ownership enforcement, Turnstile bot protection, and gzip upload storage added in July 2026.
+description: Implementation decisions for the auth/session system, ownership enforcement, and gzip upload storage added in July 2026. Turnstile was fully removed on July 19, 2026 at user request.
 ---
 
 ## Auth stack decisions
@@ -23,11 +23,9 @@ Routes return early on null: `const instanceId = await requireOwnedInstance(...)
 First-registered user adopts all instances where `userId IS NULL`.  
 This happens once in `POST /auth/register` when `count(users) === 0` at registration time.
 
-## Turnstile
+## Turnstile — REMOVED (July 19, 2026)
 
-- Server: `verifyTurnstile(token, remoteIp)` in `src/lib/auth.ts`.
-- Dev without secret: logs warning, allows request. Production without secret: rejects 400.
-- Frontend: renders widget only when `VITE_TURNSTILE_SITE_KEY` is set (`import.meta.env.VITE_TURNSTILE_SITE_KEY`).
+Cloudflare Turnstile was implemented, then fully removed at user request ("broken" — the widget cannot reach Cloudflare's challenge servers from the Replit preview sandbox, error 110200). Do not re-add without an explicit ask. Rate limiting (10/15 min per IP) remains the bot/brute-force control on auth routes. The TURNSTILE_SECRET_KEY / VITE_TURNSTILE_SITE_KEY secrets may still exist in the workspace but are unused.
 
 ## Gzip storage
 

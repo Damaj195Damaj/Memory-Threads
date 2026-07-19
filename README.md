@@ -4,7 +4,7 @@ An AI-powered memory engine for your files. Stop searching by filename — searc
 
 ## Features
 
-- **Auth**: Email + password accounts, httpOnly session cookies, bcrypt password hashing, rate-limited login/register, Cloudflare Turnstile bot protection.
+- **Auth**: Email + password accounts, httpOnly session cookies, bcrypt password hashing, rate-limited login/register.
 - **Upload**: Drag-and-drop files (PDF, DOCX, TXT, MD, CSV — up to 50MB). Text-based files (TXT, MD, CSV) are gzip-compressed at rest; already-compressed container formats (PDF, DOCX) are stored as-is. Image uploads are disabled.
 - **Memory Cards**: AI-extracted title, summary, people, organizations, locations, dates, tasks, and topics.
 - **AI Search**: Natural language search with match reasons (e.g., *"the PDF my professor sent"*).
@@ -19,7 +19,7 @@ An AI-powered memory engine for your files. Stop searching by filename — searc
 - **Monorepo**: pnpm workspaces, Node.js 24, TypeScript 5.9
 - **Frontend**: React + Vite + TailwindCSS + shadcn/ui + Framer Motion + Wouter
 - **API**: Express 5
-- **Auth**: express-session + connect-pg-simple (Postgres session store), bcryptjs, express-rate-limit, Cloudflare Turnstile
+- **Auth**: express-session + connect-pg-simple (Postgres session store), bcryptjs, express-rate-limit
 - **Database**: PostgreSQL + Drizzle ORM
 - **AI**: DeepSeek API (`deepseek-chat` model, OpenAI-compatible SDK)
 - **File processing**: `pdf-parse` (PDF), `mammoth` (DOCX), `papaparse` (CSV), Node.js zlib (gzip at rest)
@@ -41,7 +41,7 @@ lib/
 
 artifacts/
   api-server/
-    src/lib/auth.ts              # Session middleware, requireAuth, Turnstile verification
+    src/lib/auth.ts              # Session middleware, requireAuth
     src/lib/ownership.ts         # requireOwnedInstance() — verifies instanceId belongs to user
     src/lib/fileStorage.ts       # compressStoredFile / readStoredFile (gzip helpers)
     src/lib/fileProcessor.ts     # Text extraction (reads via readStoredFile, transparent gunzip)
@@ -57,8 +57,8 @@ artifacts/
     src/routes/graph.ts          # Graph — ownership-scoped
   memory-threads/
     src/contexts/AuthContext.tsx # AuthProvider, useAuth, login/register/logout
-    src/pages/login.tsx          # Login page with Turnstile widget
-    src/pages/register.tsx       # Register page with Turnstile widget
+    src/pages/login.tsx          # Login page
+    src/pages/register.tsx       # Register page
     src/pages/                   # Dashboard, Memories, Search, Ask, Timeline, Graph, Upload
 ```
 
@@ -99,9 +99,7 @@ pnpm run typecheck
 | `DEEPSEEK_API_KEY` | ✅ | DeepSeek API key for analysis and Q&A |
 | `SESSION_SECRET` | ✅ | Random secret for signing session cookies (min 32 chars recommended) |
 | `PORT` | — | API server port (provided by Replit / your hosting platform) |
-| `TURNSTILE_SECRET_KEY` | ⚠️ | Cloudflare Turnstile secret. If unset: dev allows requests with a warning; production rejects them. |
-| `VITE_TURNSTILE_SITE_KEY` | ⚠️ | Cloudflare Turnstile site key (frontend). Required to show the widget on login/register pages. |
-| `NODE_ENV` | — | Set to `production` for secure cookies and strict Turnstile enforcement |
+| `NODE_ENV` | — | Set to `production` for secure cookies |
 
 ## Architecture Notes
 
@@ -124,10 +122,6 @@ Routes that were formerly unscoped / open (now fixed):
 ### Gzip storage
 
 Text-based uploads (TXT, MD, CSV) are gzip-compressed after multer writes them to `./uploads/`. Already-compressed container formats (PDF, DOCX) are stored as-is — gzipping a PDF/DOCX typically saves 0–5% while burning CPU. The compressed path (`<original>.gz`) is stored in `memories.filePath` so delete operations unlink the right file. `readStoredFile()` transparently gunzips any file ending in `.gz` or bearing a gzip magic number before handing bytes to pdf-parse / mammoth / papaparse.
-
-### Cloudflare Turnstile bot protection
-
-Server-side verification is done in `src/lib/auth.ts:verifyTurnstile()`. The frontend renders the Turnstile widget on login/register pages when `VITE_TURNSTILE_SITE_KEY` is set; it gracefully hides when not configured. The server enforces the check only when `TURNSTILE_SECRET_KEY` is present — absent in dev, it logs a warning and allows the request; absent in production, it rejects with a 400.
 
 ### Legacy workspace adoption
 

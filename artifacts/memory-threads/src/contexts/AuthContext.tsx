@@ -8,8 +8,8 @@ export interface AuthUser {
 interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
-  login: (email: string, password: string, turnstileToken: string) => Promise<void>;
-  register: (email: string, password: string, turnstileToken: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -37,18 +37,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setIsLoading(false));
   }, []);
 
-  const login = async (email: string, password: string, turnstileToken: string) => {
+  const login = async (email: string, password: string) => {
     const u = await apiFetch<AuthUser>('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password, turnstileToken }),
+      body: JSON.stringify({ email, password }),
     });
     setUser(u);
   };
 
-  const register = async (email: string, password: string, turnstileToken: string) => {
+  const register = async (email: string, password: string) => {
     const u = await apiFetch<AuthUser>('/api/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ email, password, turnstileToken }),
+      body: JSON.stringify({ email, password }),
     });
     setUser(u);
   };

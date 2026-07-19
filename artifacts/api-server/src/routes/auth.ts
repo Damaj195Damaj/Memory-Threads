@@ -3,11 +3,7 @@ import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import { eq, isNull, sql } from "drizzle-orm";
 import { db, usersTable, instancesTable } from "@workspace/db";
-import {
-  regenerateSession,
-  destroySession,
-  verifyTurnstile,
-} from "../lib/auth";
+import { regenerateSession, destroySession } from "../lib/auth";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -15,7 +11,7 @@ const router = Router();
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
 
-// Independent of Turnstile so bot protection doesn't rely on one control
+// Rate limiting is the primary brute-force / bot control on auth routes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 10,
@@ -42,12 +38,6 @@ router.post("/auth/register", authLimiter, async (req, res): Promise<void> => {
     res.status(400).json({
       error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
     });
-    return;
-  }
-
-  const turnstile = await verifyTurnstile(req.body?.turnstileToken, req.ip);
-  if (!turnstile.ok) {
-    res.status(400).json({ error: turnstile.error });
     return;
   }
 
@@ -103,12 +93,6 @@ router.post("/auth/login", authLimiter, async (req, res): Promise<void> => {
   const password = req.body?.password;
   if (!email || typeof password !== "string" || !password) {
     res.status(400).json({ error: "Email and password are required" });
-    return;
-  }
-
-  const turnstile = await verifyTurnstile(req.body?.turnstileToken, req.ip);
-  if (!turnstile.ok) {
-    res.status(400).json({ error: turnstile.error });
     return;
   }
 

@@ -1,27 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { Brain, Loader2, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-
-// Cloudflare Turnstile always-visible site key.
-// In development, use the official dummy test key so the widget renders without
-// making real network calls; in production, use the real VITE_TURNSTILE_SITE_KEY.
-// Dummy test keys documented at https://developers.cloudflare.com/turnstile/troubleshooting/testing/
-const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA';
-
-declare global {
-  interface Window {
-    turnstile?: {
-      render: (container: string | HTMLElement, options: Record<string, unknown>) => string;
-      reset: (widgetId: string) => void;
-      remove: (widgetId: string) => void;
-      getResponse: (widgetId: string) => string | undefined;
-    };
-  }
-}
 
 export default function Login() {
   const { login } = useAuth();
@@ -31,72 +14,16 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState('');
-  const turnstileRef = useRef<HTMLDivElement>(null);
-  const widgetIdRef = useRef<string | null>(null);
-
-  // Suppress Cloudflare Turnstile unhandled errors (e.g. 110200 "can't connect")
-  // so Vite's dev overlay doesn't fire in sandboxed/offline environments.
-  useEffect(() => {
-    if (!TURNSTILE_SITE_KEY) return;
-    const handler = (e: ErrorEvent) => {
-      if (e.message?.includes('Cloudflare Turnstile') || e.message?.includes('Turnstile')) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-      }
-    };
-    window.addEventListener('error', handler, true);
-    return () => window.removeEventListener('error', handler, true);
-  }, []);
-
-  // Load Turnstile script and render widget when site key is configured
-  useEffect(() => {
-    if (!TURNSTILE_SITE_KEY || !turnstileRef.current) return;
-    const scriptId = 'cf-turnstile-script';
-    const render = () => {
-      if (!turnstileRef.current || widgetIdRef.current) return;
-      widgetIdRef.current = window.turnstile!.render(turnstileRef.current, {
-        sitekey: TURNSTILE_SITE_KEY,
-        callback: (token: string) => setTurnstileToken(token),
-        'expired-callback': () => setTurnstileToken(''),
-      });
-    };
-    if (window.turnstile) { render(); return; }
-    if (!document.getElementById(scriptId)) {
-      const s = document.createElement('script');
-      s.id = scriptId;
-      s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
-      s.async = true;
-      s.onload = render;
-      document.head.appendChild(s);
-    } else {
-      const interval = setInterval(() => { if (window.turnstile) { clearInterval(interval); render(); } }, 100);
-    }
-    return () => {
-      if (widgetIdRef.current && window.turnstile) {
-        window.turnstile.remove(widgetIdRef.current);
-        widgetIdRef.current = null;
-      }
-    };
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (TURNSTILE_SITE_KEY && !turnstileToken) {
-      setError('Please complete the bot check.');
-      return;
-    }
     setIsSubmitting(true);
     try {
-      await login(email, password, turnstileToken);
+      await login(email, password);
       setLocation('/');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Login failed');
-      if (widgetIdRef.current && window.turnstile) {
-        window.turnstile.reset(widgetIdRef.current);
-        setTurnstileToken('');
-      }
     } finally {
       setIsSubmitting(false);
     }
@@ -153,10 +80,6 @@ export default function Login() {
                 </button>
               </div>
             </div>
-
-            {TURNSTILE_SITE_KEY && (
-              <div ref={turnstileRef} className="flex justify-center" />
-            )}
 
             {error && (
               <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">

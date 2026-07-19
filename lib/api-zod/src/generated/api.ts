@@ -26,8 +26,7 @@ export const registerBodyPasswordMin = 8;
 
 export const RegisterBody = zod.object({
   "email": zod.string(),
-  "password": zod.string().min(registerBodyPasswordMin),
-  "turnstileToken": zod.string().optional()
+  "password": zod.string().min(registerBodyPasswordMin)
 })
 
 export const RegisterResponse = zod.object({
@@ -41,8 +40,7 @@ export const RegisterResponse = zod.object({
  */
 export const LoginBody = zod.object({
   "email": zod.string(),
-  "password": zod.string(),
-  "turnstileToken": zod.string().optional()
+  "password": zod.string()
 })
 
 export const LoginResponse = zod.object({
